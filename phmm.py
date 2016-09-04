@@ -2,9 +2,13 @@ import numpy as np
 from utils import *
 
 
+# TODO: check if initial probs are valid
+# TODO: emit prob matrix for insertion states are redundant (array is sufficient)
+
 class PHMM:
 
-    def __init__(self, n_match_states = 1, n_ins_states = 2, n_simbols=4, initprob=None, transprob=None, emitprob=None):
+    def __init__(self, n_match_states = 1, n_ins_states = 2, n_simbols=4,
+                 initprob=None, transprob=None, emitprob=None):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
         self._emitprob = emitprob # [n_hstates, xdim, ydim] (usually xdim == ydim)
@@ -17,6 +21,36 @@ class PHMM:
 
         if initprob is None or transprob is None or emitprob is None:
             self._params_valid = False
+        else:
+            self._params_valid = True
+
+    def _params_random_init(self):
+        initprob = np.random.rand(self._n_hstates)
+        initprob /= np.sum(initprob)
+        self._initprob = initprob
+
+        transprob = np.random.rand(self._n_hstates, self._n_hstates)
+        transprob /= np.sum(transprob, axis=1)[:, np.newaxis]
+        self._transprob = transprob
+
+        self._emitprob = np.zeros((self._n_hstates, self._n_simbols, self._n_simbols))
+
+        for k in range(self._n_hstates):
+            if self._hstate_properties[k] == 0:
+                emitprob = np.random.rand(self._n_simbols, self._n_simbols)
+                emitprob /= np.sum(emitprob)
+                self._emitprob[k] = emitprob
+
+            if self._hstate_properties[k] == 1:
+                emitprob = np.random.rand(self._n_simbols)
+                emitprob /= np.sum(emitprob)
+                self._emitprob[k] = np.ones((self._n_simbols, self._n_simbols)) * emitprob[:, np.newaxis]
+
+            if self._hstate_properties[k] == 2:
+                emitprob = np.random.rand(self._n_simbols)
+                emitprob /= np.sum(emitprob)
+                self._emitprob[k] = np.ones((self._n_simbols, self._n_simbols)) * emitprob[np.newaxis, :]
+
 
     def _gen_hstate_properties(self, n_match_states, n_ins_states):
         # 0: Match, 1: Xins, 2: Yins
@@ -39,7 +73,7 @@ class PHMM:
         len_x = xseq.shape[0]
         len_y = yseq.shape[0]
         shape = (len_x + 1, len_y + 1, self._n_hstates)
-        log_emitprob = np.log(self._emitprob)
+        log_emitprob = log_(self._emitprob)
         log_emitprob_frame = np.zeros(shape)
 
         for i in range(len_x):
@@ -58,6 +92,57 @@ class PHMM:
                     log_emitprob_frame[0, j + 1, k] = log_emitprob[k, 0, yseq[j]]
 
         return log_emitprob_frame
+
+    def score(self, xseq, yseq):
+        log_emitprob_frame = self._gen_log_emitprob_frame(xseq, yseq)
+
+        ll, _ = self._forward(log_emitprob_frame, log_(self._transprob), log_(self._initprob))
+
+        return ll
+
+    def _gen_sample_given_hstate(self, hstate):
+        if self._hstate_properties[hstate] == 0:
+            emitprob_cdf = np.cumsum(self._emitprob[hstate])
+            x, y = np.unravel_index((emitprob_cdf > np.random.rand()).argmax(), self._emitprob[hstate].shape)
+            return x, y
+
+        if self._hstate_properties[hstate] == 1:
+            emitprob_cdf = np.cumsum(self._emitprob[hstate, :, 0])
+            x = (emitprob_cdf > np.random.rand()).argmax()
+            return x, -1
+
+        if self._hstate_properties[hstate] == 2:
+            emitprob_cdf = np.cumsum(self._emitprob[hstate, 0, :])
+            y = (emitprob_cdf > np.random.rand()).argmax()
+            return -1, y
+
+        raise ValueError("hstate {} is invalid".format(hstate))
+
+    def sample(self, n_samples=1):
+        # TODO: random seed
+        if not self._params_valid:
+            # TODO: should replace as not-fitted error
+            raise ValueError("model params are not fitted")
+
+        initprob_cdf = np.cumsum(self._initprob)
+        transprob_cdf = np.cumsum(self._transprob, axis=1)
+
+        curr_hstate = (initprob_cdf > np.random.rand()).argmax()
+        hseq = [curr_hstate]
+
+        x, y = self._gen_sample_given_hstate(curr_hstate)
+
+        xseq = [x]
+        yseq = [y]
+
+        for i in range(1, n_samples):
+            curr_hstate = (transprob_cdf[curr_hstate] > np.random.rand()).argmax()
+            hseq.append(curr_hstate)
+            x, y = self._gen_sample_given_hstate(curr_hstate)
+            xseq.append(x)
+            yseq.append(y)
+
+        return np.array(xseq), np.array(yseq), np.array(hseq)
 
     def decode(self, x_seq, y_seq):
         log_initprob = np.log(self._initprob + EPS)
@@ -99,7 +184,7 @@ class PHMM:
                     viterbi_lattice[i, j, k] = cands[opt_l] + log_emitprob_frame[i, j, k]
                     trace_lattice[i, j, k] = opt_l
 
-        # trace
+        # trace back
         i, j = len_x, len_y
         map_hstates = [np.argmax(viterbi_lattice[i, j, :])]
 
@@ -117,50 +202,86 @@ class PHMM:
         return log_likelihood, np.array(map_hstates[1:])
 
     def fit(self, xseqs, yseqs, max_iter=1000):
+
+        if not self._params_valid:
+            self._params_random_init()
+
         log_transprob = log_(self._transprob)
         log_initprob = log_(self._initprob)
-
+        assert(len(xseqs) == len(yseqs))
         ## is there better way to explain 0 in log space?(-inf?)
 
         for i in range(1, max_iter + 1):
             print("{}-th iteration...".format(i))
+            ll_all = 0
 
-            # TODO: repalce with generator of seqs
-            # TODO: maybe we should hold binary array to explain if the element is zero (because log cannot explain zero exactly)
-            # ... it actually could but be careful of overflow of MINF
+            sstats = self._init_sufficient_statistics()
 
-            accum_initprob = np.zeros_like(log_initprob)
-            accum_transprob = np.zeros_like(log_transprob)
-            accum_emit = np.zeros_like(self._emitprob)
-            accum_gamma = np.zeros_like(log_initprob)
-
-            for j in range(min(xseqs.shape[0], yseqs.shape[0])):
+            for j in range(len(xseqs)):
                 log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
 
                 ll, fwd_lattice = self._forward(log_emitprob_frame, log_transprob, log_initprob)
+                ll_all += ll
                 bwd_lattice = self._backward(log_emitprob_frame, log_transprob)
 
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
                                                                      log_emitprob_frame, log_transprob)
 
-                shape_x, shape_y, n_hstates = gamma.shape
+                self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
 
-                for k in range(n_hstates):
-                    di, dj = self._delta_index(k)
-                    accum_initprob[k] += gamma[di, dj, k]
-                    # or just assure zero-value in the last row/colomns and sum over all?
-                    accum_transprob[:, k] += np.sum(xi[:shape_x - di, :shape_y - dj, :, k], axis=(0, 1))
-                    accum_gamma += np.sum(gamma[:shape_x - di, :shape_y - dj, k], axis=(0,1))
-                    emitprob_frame = np.exp(log_emitprob_frame)
-                    # TODO: fix emitprob update
-                    # how? gamma_value.groub_by(correspoindng_emission(x_i, y_j))
-                    accum_emit += np.sum(gamma[:shape_x - di, :shape_y - dj, k] * emitprob_frame[:shape_x - di, :shape_y - dj, k])
+            self._update_params(sstats)
+            print("log-likelihood", ll_all)
 
-            self._initprob = accum_initprob / (np.sum(accum_initprob) + EPS)
-            self._transprob = accum_transprob / (np.sum(accum_transprob, axis=1)[:, np.newaxis] + EPS)
-            self._emitprob = self._emitprob
+        self._params_valid = True
 
         return self
+
+    def _init_sufficient_statistics(self):
+        sstats = {}
+        sstats["init"] = np.zeros_like(self._initprob)
+        sstats["trans"] = np.zeros_like(self._transprob)
+        sstats["emit"] = np.zeros_like(self._emitprob)
+        return sstats
+
+    def _accumulate_sufficient_statistics(self, sstats, gamma, xi, xseq, yseq):
+
+        shape_x, shape_y, n_hstates = gamma.shape
+
+        for k in range(self._n_hstates):
+            di, dj = self._delta_index(k)
+            sstats["init"][k] += gamma[di, dj, k]
+            # or just assure zero-value in the last row/colomns and sum over all?
+            sstats["trans"][:, k] += np.sum(xi[:shape_x - di, :shape_y - dj, :, k], axis=(0, 1))
+
+            if self._hstate_properties[k] == 0:
+                for t, x in enumerate(xseq):
+                    for u, y in enumerate(yseq):
+                        sstats["emit"][k, x, y] += gamma[t + 1, u + 1, k]
+
+            if self._hstate_properties[k] == 1:
+                for t, x in enumerate(xseq):
+                    for u in range(yseq.shape[0] + 1):
+                        sstats["emit"][k, x, :] += gamma[t + 1, u, k]
+
+            if self._hstate_properties[k] == 2:
+                for t in range(xseq.shape[0] + 1):
+                    for u, y in enumerate(yseq):
+                        sstats["emit"][k, :, y] += gamma[t, u + 1, k]
+
+    def _update_params(self, sstats):
+        self._initprob = sstats["init"] / (np.sum(sstats["init"]) + EPS)
+        self._transprob = sstats["trans"] / (np.sum(sstats["trans"], axis=1)[:, np.newaxis] + EPS)
+
+        for k in range(self._n_hstates):
+
+            if self._hstate_properties[k] == 0:
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k]) + EPS)
+
+            if self._hstate_properties[k] == 1:
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=0) + EPS)[np.newaxis, :]
+
+            if self._hstate_properties[k] == 2:
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=1) + EPS)[:, np.newaxis]
 
     def _compute_smoothed_marginals(self, fwd_lattice, bwd_lattice, ll,
                                     log_emitprob_frame, log_transprob):
@@ -173,19 +294,19 @@ class PHMM:
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
 
-            a = fwd_lattice[:shape_x - di, :shape_y - dj, :, np.newaxis] +\
-                log_emitprob_frame[di:, dj:, np.newaxis, :] + \
-                log_transprob[np.newaxis, np.newaxis, :, :] + \
-                bwd_lattice[di:, dj:, np.newaxis, :] - ll
+            a = fwd_lattice[:shape_x - di, :shape_y - dj, :] +\
+                log_emitprob_frame[di:, dj:, np.newaxis, k] + \
+                log_transprob[np.newaxis, np.newaxis, :, k] + \
+                bwd_lattice[di:, dj:, np.newaxis, k] - ll
 
-            log_xi[:shape_x - di, :shape_y - dj, :, k] = a[:, :, :, k]
+            log_xi[:shape_x - di, :shape_y - dj, :, k] = a
 
         return np.exp(log_gamma), np.exp(log_xi)
 
     def _forward(self, log_emitprob_frame, log_transprob, log_initprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        fwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF / 10
+        fwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF
 
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
@@ -209,7 +330,6 @@ class PHMM:
                             wbuf[l] = fwd_lattice[_i, _j, l] + log_transprob[l, k]
                         fwd_lattice[i, j, k] = log_emitprob_frame[i, j, k] + logsumexp(wbuf)
 
-
         log_likelihood = logsumexp(fwd_lattice[shape_x - 1, shape_y - 1, :])
 
         return log_likelihood, fwd_lattice
@@ -217,8 +337,7 @@ class PHMM:
     def _backward(self, log_emitprob_frame, log_transprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        # devide by 10 to avoid overflow when bwd + fwd
-        bwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF / 10
+        bwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF
 
         bwd_lattice[shape_x-1, shape_y-1, :] = 0
 

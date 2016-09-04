@@ -6,15 +6,7 @@ from utils import *
 
 class TestPHMM(unittest.TestCase):
 
-    def setUp(self):
-        self.emptyprob = 1  # pseudou probability for unused column of emitprob frame
-
-        self.matchprob = .85
-        self.unmatchprob = .05
-        self.insertprob = .25
-
-        self.initprob_match = 0.9
-        self.initprob_ins = 0.05
+    def setUp(self, random=False):
 
         n_match_states = 1
         n_ins_states = 1
@@ -22,25 +14,38 @@ class TestPHMM(unittest.TestCase):
 
         n_simbols = 4
 
-        initprob = np.array([self.initprob_match, self.initprob_ins, self.initprob_ins])
-        transprob = np.array([[.9, .05, .05],
-                              [.6, .4, 0],
-                              [.6, 0, .4]])
+        if random:
+            initprob = transprob = emitprob = None
+        else:
+            self.emptyprob = 1  # pseudou probability for unused column of emitprob frame
 
-        match_prob = np.ones((n_simbols, n_simbols)) * self.unmatchprob
-        for i in range(n_simbols):
-            match_prob[i, i] = self.matchprob
+            self.matchprob = .16
+            self.unmatchprob = .03
+            self.insertprob = .25
 
-        emitprob = np.ones((n_hstates, n_simbols, n_simbols)) * self.insertprob
+            self.initprob_match = 0.6
+            self.initprob_ins = 0.2
 
-        emitprob[0, :, :] = match_prob
+            initprob = np.array([self.initprob_match, self.initprob_ins, self.initprob_ins])
+
+            transprob = np.array([[.9, .05, .05],
+                                  [.6, .4, 0],
+                                  [.6, 0, .4]])
+
+            match_prob = np.ones((n_simbols, n_simbols)) * self.unmatchprob
+            for i in range(n_simbols):
+                match_prob[i, i] = self.matchprob
+
+            emitprob = np.ones((n_hstates, n_simbols, n_simbols)) * self.insertprob
+
+            emitprob[0, :, :] = match_prob
 
         self.model = phmm.PHMM(n_match_states=n_match_states,
-                          n_ins_states=1,
-                          initprob=initprob,
-                          transprob=transprob,
-                          emitprob=emitprob,
-                          n_simbols=n_simbols)
+                               n_ins_states=n_ins_states,
+                               initprob=initprob,
+                               transprob=transprob,
+                               emitprob=emitprob,
+                               n_simbols=n_simbols)
 
     def test_decoder(self):
         def decode(xseq, yseq):
@@ -116,7 +121,6 @@ class TestPHMM(unittest.TestCase):
         yseq = np.array([1])
         _test_if_correct(xseq, yseq)
 
-
     def test_forward(self):
         xseq = np.array([0])
         yseq = np.array([1])
@@ -147,19 +151,104 @@ class TestPHMM(unittest.TestCase):
     def test_backward(self):
         pass
 
+    def test_sample(self):
+        model = self.model
+        n_samples = 100
+
+        xseq, yseq, hseq = model.sample(n_samples)
+
+        self.assertEqual(xseq.shape[0], n_samples)
+        self.assertEqual(yseq.shape[0], n_samples)
+        self.assertEqual(yseq.shape[0], n_samples)
+
     def test_fit(self):
         N = 100
-        # xseqs = np.array([[0,1,2,3,0,1,2,3] for _ in range(N)])
-        # yseqs = np.array([[0,1,2,0,1,2,3] for _ in range(N)])
 
-        xseqs = np.array([[0,1] for _ in range(N)])
-        yseqs = np.array([[0,2,1] for _ in range(N)])
-        self.model.fit(xseqs, yseqs, max_iter=1)
+        xseqs = [np.array([0,1,3,3,0,0,2,2,2]) for _ in range(N)]
+        yseqs = [np.array([0,2,1,3,3,2,2,2]) for _ in range(N)]
+
+        model = self.model
+        n_iter = 3
+
+        def score_seqs():
+            ll = 0
+            for xseq, yseq in zip(xseqs, yseqs):
+                ll += model.score(xseq, yseq)
+            return ll
+
+        last_ll = score_seqs()
+        for i in range(n_iter):
+            self.model.fit(xseqs, yseqs, max_iter=1)
+
+            ll = score_seqs()
+
+            self.assertGreater(ll, last_ll)
+
+            print("ll:", ll)
+            print("diff:", ll - last_ll)
+            print()
+
+            last_ll = ll
+
         print("initprob", self.model._initprob)
         print("transprob", self.model._transprob)
+        print("emitprob", self.model._emitprob)
 
         self.setUp()
 
+    # def test_fit_by_sampling(self):
+    #     N = 10000
+    #     len_seq = 20
+    #     max_iter = 30
+    #     model = self.model
+    #
+    #     xseqs = []
+    #     yseqs = []
+    #
+    #     for _ in range(N):
+    #         xseq, yseq, hseq = model.sample(len_seq)
+    #         xseqs.append(omit_gap(xseq))
+    #         yseqs.append(omit_gap(yseq))
+    #
+    #     self.setUp(random=True)
+    #     fmodel = self.model
+    #
+    #     fmodel.fit(xseqs, yseqs, max_iter=max_iter)
+    #
+    #     print("initprob", fmodel._initprob)
+    #     print("transprob", fmodel._transprob)
+    #     print("emitprob", fmodel._emitprob)
+    #
+    #     self.setUp()
+
+    def test_sample(self):
+        model = self.model
+        n_samples = 100000
+        decimal = 2
+
+        match_freqs = np.zeros((model._n_simbols, model._n_simbols))
+        for i in range(n_samples):
+            x, y = model._gen_sample_given_hstate(0)
+            match_freqs[x, y] += 1
+        match_freqs /= n_samples
+
+        np.testing.assert_almost_equal(match_freqs, model._emitprob[0], decimal=decimal)
+
+        xins_freqs = np.zeros((model._n_simbols, model._n_simbols))
+        for i in range(n_samples):
+            x, y = model._gen_sample_given_hstate(1)
+            xins_freqs[x, :] += 1
+        xins_freqs /= n_samples
+
+        np.testing.assert_almost_equal(xins_freqs, model._emitprob[1], decimal=decimal)
+
+        yins_freqs = np.zeros((model._n_simbols, model._n_simbols))
+        for i in range(n_samples):
+            x, y = model._gen_sample_given_hstate(2)
+            yins_freqs[:, y] += 1
+        yins_freqs /= n_samples
+
+        np.testing.assert_almost_equal(yins_freqs, model._emitprob[2], decimal=decimal)
 
 if __name__ == '__main__':
     unittest.main()
