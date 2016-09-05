@@ -5,12 +5,13 @@ from phmm import PHMM
 
 class FABPHMM(PHMM):
     
-    def __init__(self, n_match_states=1, n_ins_states=2,
+    def __init__(self, n_match_states=1, n_xins_states=2, n_yins_states=2,
                  n_simbols=4, initprob=None, transprob=None, emitprob=None,
-                 symmetric_emission=False, shrink_threshold=1e-3):
+                 symmetric_emission=False, shrink_threshold=1e-2):
         
         super(FABPHMM, self).__init__(n_match_states=n_match_states,
-                                      n_ins_states=n_ins_states,
+                                      n_xins_states=n_xins_states,
+                                      n_yins_states=n_yins_states,
                                       n_simbols=n_simbols,
                                       initprob=initprob,
                                       transprob=transprob,
@@ -67,30 +68,40 @@ class FABPHMM(PHMM):
         return norm, pseudo_prob
 
     def _shrinkage_operation(self, sstats):
-        below_threshold = (sstats["gamma"] / sstats["n_gamma"])  > self._shrink_threshold / self._n_hstates
-        preserved_hstates, = np.nonzero(below_threshold == 0)
-        deleted_hstates = np.nonzero(below_threshold != 0)
+        below_threshold = (sstats["gamma"] / sstats["n_gamma"]) < (self._shrink_threshold / self._n_hstates)
+        preserved_hstates, = np.nonzero(~below_threshold)
+        deleted_hstates, = np.nonzero(below_threshold)
 
-        deleted_hstateprops = [0] * 3
+        n_deleted_hstateprops = [0] * 3
         for k in deleted_hstates:
-            deleted_hstateprops[self._hstate_properties[k]] += 1
+            n_deleted_hstateprops[self._hstate_properties[k]] += 1
 
-        # update hstate props
-        # add xins and yins nstates
+        if sum(n_deleted_hstateprops) == 0:
+            return False
+
+        self._n_match_states -= n_deleted_hstateprops[0]
+        self._n_xins_states -= n_deleted_hstateprops[1]
+        self._n_yins_states -= n_deleted_hstateprops[2]
+        assert(self._n_match_states > 0)
+        assert(self._n_xins_states > 0)
+        assert(self._n_yins_states > 0)
+
+        self._n_hstates -= sum(n_deleted_hstateprops)
+
+        self._hstate_properties = self._gen_hstate_properties()
 
         # dont forget update qtilde
-        # and hstate properties
 
         self._initprob = self._initprob[preserved_hstates]
-        self._transprob = self._transprob[...]
+        self._transprob = self._transprob[:, preserved_hstates]
+        self._transprob = self._transprob[preserved_hstates, :]
         self._emitprob = self._emitprob[preserved_hstates, :, :]
-        self.
+        self._qtilde_all = [qtilde[:, :, preserved_hstates] for qtilde in self._qtilde_all]
 
         for k in deleted_hstates:
-            print("hstate {} is shrinked".format(k))
+            print("hstate {} is deleted".format(k))
 
-
-
+        return sum(n_deleted_hstateprops)
 
     def _init_sufficient_statistics(self):
         sstats = super(FABPHMM, self)._init_sufficient_statistics()
@@ -103,7 +114,7 @@ class FABPHMM(PHMM):
         sstats["gamma"] += np.sum(gamma, axis=(0, 1))
         sstats["n_gamma"] += gamma.shape[0] * gamma.shape[0]
 
-    def _gen_random_distribution(self, xseqs, yseqs):
+    def _gen_random_qtilde(self, xseqs, yseqs):
         n_seqs = len(xseqs)
         out = []
         for i in range(n_seqs):
@@ -118,15 +129,14 @@ class FABPHMM(PHMM):
             self._params_random_init()
             self._params_valid = True
 
-        log_transprob = log_(self._transprob)
-        log_initprob = log_(self._initprob)
-
         assert(len(xseqs) == len(yseqs))
 
-        qs_prev = self._gen_random_distribution(xseqs, yseqs)
+        self._qtilde_all = self._gen_random_qtilde(xseqs, yseqs)
 
         for i in range(1, max_iter + 1):
             print("{}-th iteration...".format(i))
+            log_transprob = log_(self._transprob)
+            log_initprob = log_(self._initprob)
 
             sstats = self._init_sufficient_statistics()
 
@@ -134,7 +144,7 @@ class FABPHMM(PHMM):
 
             for j in range(len(xseqs)):
                 log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
-                q_tilde = qs_prev[j]
+                q_tilde = self._qtilde_all[j]
 
                 norm, pseudo_prob = self._gen_pseudo_prob(q_tilde, dims_trans, dims_emit)
                 fab_log_emitprob_frame = log_emitprob_frame + log_(pseudo_prob)
@@ -145,12 +155,12 @@ class FABPHMM(PHMM):
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, free_energy,
                                                              log_emitprob_frame, log_transprob)
 
-                qs_prev[j] = gamma
+                self._qtilde_all[j] = gamma
 
                 self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
 
             self._update_params(sstats)
 
-            self._shrinkage_operation(sstats)
+            # self._shrinkage_operation(sstats)
 
         return self

@@ -9,8 +9,9 @@ class TestPHMM(unittest.TestCase):
     def setUp(self, random=False):
 
         n_match_states = 1
-        n_ins_states = 1
-        n_hstates = n_match_states + 2 * n_ins_states
+        n_xins_states = 1
+        n_yins_states = 1
+        n_hstates = n_match_states + n_xins_states + n_yins_states
 
         n_simbols = 4
 
@@ -41,7 +42,8 @@ class TestPHMM(unittest.TestCase):
             emitprob[0, :, :] = match_prob
 
         self.model = phmm.PHMM(n_match_states=n_match_states,
-                               n_ins_states=n_ins_states,
+                               n_xins_states=n_xins_states,
+                               n_yins_states=n_yins_states,
                                initprob=initprob,
                                transprob=transprob,
                                emitprob=emitprob,
@@ -190,9 +192,9 @@ class TestPHMM(unittest.TestCase):
 
             last_ll = ll
 
-        print("initprob", self.model._initprob)
-        print("transprob", self.model._transprob)
-        print("emitprob", self.model._emitprob)
+        #print("initprob", self.model._initprob)
+        #print("transprob", self.model._transprob)
+        #print("emitprob", self.model._emitprob)
 
         self.setUp()
 

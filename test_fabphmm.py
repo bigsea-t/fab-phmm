@@ -10,7 +10,8 @@ class TestFABPHMM(unittest.TestCase):
         initprob = transprob = emitprob = None
 
         return FABPHMM(n_match_states=n_match_states,
-                             n_ins_states=n_ins_states)
+                       n_xins_states=n_ins_states,
+                       n_yins_states=n_ins_states)
 
     def a_model(self):
         n_match_states = 1
@@ -43,7 +44,8 @@ class TestFABPHMM(unittest.TestCase):
         emitprob[0, :, :] = match_prob
 
         return FABPHMM(n_match_states=n_match_states,
-                       n_ins_states=n_ins_states,
+                       n_xins_states=n_ins_states,
+                       n_yins_states=n_ins_states,
                        initprob=initprob,
                        transprob=transprob,
                        emitprob=emitprob,
@@ -64,7 +66,7 @@ class TestFABPHMM(unittest.TestCase):
 
     def test_fit(self):
         max_iter = 30
-        xseqs, yseqs = self.sample_from_a_model(n_samples=1000, len_seq=10)
+        xseqs, yseqs = self.sample_from_a_model(n_samples=100, len_seq=10)
         model = self.random_model(n_match_states=1, n_ins_states=5)
         model.fit(xseqs, yseqs, max_iter=max_iter)
 

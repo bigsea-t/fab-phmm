@@ -7,14 +7,18 @@ from utils import *
 
 class PHMM:
 
-    def __init__(self, n_match_states = 1, n_ins_states = 2, n_simbols=4,
+    def __init__(self, n_match_states = 1, n_xins_states = 2, n_yins_states=2, n_simbols=4,
                  initprob=None, transprob=None, emitprob=None):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
         self._emitprob = emitprob # [n_hstates, xdim, ydim] (usually xdim == ydim)
 
-        self._n_hstates = n_match_states + n_ins_states * 2
-        self._hstate_properties = self._gen_hstate_properties(n_match_states, n_ins_states)
+        self._n_hstates = n_match_states + n_xins_states + n_yins_states
+        self._n_match_states = n_match_states
+        self._n_xins_states = n_xins_states
+        self._n_yins_states = n_yins_states
+
+        self._hstate_properties = self._gen_hstate_properties()
         self._delta_index_list = [(1, 1), (1, 0), (0, 1)]
 
         self._n_simbols = n_simbols
@@ -51,15 +55,14 @@ class PHMM:
                 emitprob /= np.sum(emitprob)
                 self._emitprob[k] = np.ones((self._n_simbols, self._n_simbols)) * emitprob[np.newaxis, :]
 
-
-    def _gen_hstate_properties(self, n_match_states, n_ins_states):
+    def _gen_hstate_properties(self):
         # 0: Match, 1: Xins, 2: Yins
         hstate_properties = []
-        for _ in range(n_match_states):
+        for _ in range(self._n_match_states):
             hstate_properties.append(0)
-        for _ in range(n_ins_states):
+        for _ in range(self._n_xins_states):
             hstate_properties.append(1)
-        for _ in range(n_ins_states):
+        for _ in range(self._n_yins_states):
             hstate_properties.append(2)
 
         return hstate_properties
@@ -209,7 +212,7 @@ class PHMM:
         log_transprob = log_(self._transprob)
         log_initprob = log_(self._initprob)
         assert(len(xseqs) == len(yseqs))
-        ## is there better way to explain 0 in log space?(-inf?)
+        # is there better way to explain 0 in log space?(-inf?)
 
         for i in range(1, max_iter + 1):
             print("{}-th iteration...".format(i))
@@ -225,7 +228,7 @@ class PHMM:
                 bwd_lattice = self._backward(log_emitprob_frame, log_transprob)
 
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
-                                                                     log_emitprob_frame, log_transprob)
+                                                             log_emitprob_frame, log_transprob)
 
                 self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
 
@@ -294,14 +297,17 @@ class PHMM:
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
 
-            a = fwd_lattice[:shape_x - di, :shape_y - dj, :] +\
+            a = fwd_lattice[:shape_x - di, :shape_y - dj, :] + \
                 log_emitprob_frame[di:, dj:, np.newaxis, k] + \
                 log_transprob[np.newaxis, np.newaxis, :, k] + \
                 bwd_lattice[di:, dj:, np.newaxis, k] - ll
 
             log_xi[:shape_x - di, :shape_y - dj, :, k] = a
+        gamma = np.exp(log_gamma)
+        #np.testing.assert_almost_equal(np.sum(gamma[1:, 1:, :], axis=2), np.ones_like(gamma[1:, 1:, 0]), decimal=1)
+        xi = np.exp(log_xi)
 
-        return np.exp(log_gamma), np.exp(log_xi)
+        return gamma, xi
 
     def _forward(self, log_emitprob_frame, log_transprob, log_initprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
@@ -322,7 +328,7 @@ class PHMM:
                     if i == di and j == dj:
                         continue
 
-                    _i , _j = i - di, j - dj
+                    _i, _j = i - di, j - dj
 
                     if _i >= 0 and _j >= 0:
                         wbuf = np.ones(n_hstates) * MINF
