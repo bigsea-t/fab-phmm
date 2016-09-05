@@ -1,6 +1,5 @@
-import numpy as np
-from utils import *
-from phmm import PHMM
+from fab_phmm.phmm import PHMM
+from fab_phmm.utils import *
 
 
 class FABPHMM(PHMM):

@@ -1,7 +1,7 @@
 import unittest
-import numpy as np
+
 from fab_phmm import FABPHMM
-from utils import *
+from fab_phmm.utils import *
 
 
 class TestFABPHMM(unittest.TestCase):

@@ -1,5 +1,4 @@
-import numpy as np
-from utils import *
+from fab_phmm.utils import *
 
 
 # TODO: check if initial probs are valid
