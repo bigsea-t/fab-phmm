@@ -1,4 +1,5 @@
 from fab_phmm.utils import *
+from fab_phmm import phmmc
 
 
 # TODO: check if initial probs are valid
@@ -154,7 +155,7 @@ class PHMM:
         len_y = y_seq.shape[0]
 
         lattice_shape = (len_x + 1, len_y + 1, self._n_hstates)
-        viterbi_lattice = np.ones(lattice_shape) * MINF
+        viterbi_lattice = np.ones(lattice_shape) * (- np.inf)
         trace_lattice = np.ones(lattice_shape, dtype=np.int32) * (- 1)
 
         log_emitprob_frame = self._gen_log_emitprob_frame(x_seq, y_seq)
@@ -172,10 +173,10 @@ class PHMM:
                     continue
 
                 for k in range(self._n_hstates):
-                    if viterbi_lattice[i, j, k] != MINF:
+                    if viterbi_lattice[i, j, k] != (- np.inf):
                         continue
 
-                    cands = np.ones(self._n_hstates) * MINF
+                    cands = np.ones(self._n_hstates) * (- np.inf)
                     di, dj = self._delta_index(k)
                     _i , _j = i - di, j - dj
                     if _i >= 0 and _j >= 0:
@@ -292,7 +293,7 @@ class PHMM:
         log_gamma = fwd_lattice + bwd_lattice - ll
 
         # two-sliced smoothed margninal
-        log_xi = np.ones((shape_x, shape_y, n_hstates, n_hstates)) * MINF
+        log_xi = np.ones((shape_x, shape_y, n_hstates, n_hstates)) * (-np.inf)
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
 
@@ -303,37 +304,20 @@ class PHMM:
 
             log_xi[:shape_x - di, :shape_y - dj, :, k] = a
         gamma = np.exp(log_gamma)
-        #np.testing.assert_almost_equal(np.sum(gamma[1:, 1:, :], axis=2), np.ones_like(gamma[1:, 1:, 0]), decimal=1)
         xi = np.exp(log_xi)
+
+        print((gamma == np.inf).any())
+        print((xi == np.inf).any())
 
         return gamma, xi
 
     def _forward(self, log_emitprob_frame, log_transprob, log_initprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        fwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF
+        fwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * (- np.inf)
 
-        for k in range(self._n_hstates):
-            di, dj = self._delta_index(k)
-            fwd_lattice[di, dj, k] = log_emitprob_frame[di, dj, k] + log_initprob[k]
-
-        for i in range(shape_x):
-            for j in range(shape_y):
-                if i == 0 and j == 0:
-                    continue
-
-                for k in range(n_hstates):
-                    di, dj = self._delta_index(k)
-                    if i == di and j == dj:
-                        continue
-
-                    _i, _j = i - di, j - dj
-
-                    if _i >= 0 and _j >= 0:
-                        wbuf = np.ones(n_hstates) * MINF
-                        for l in range(n_hstates):
-                            wbuf[l] = fwd_lattice[_i, _j, l] + log_transprob[l, k]
-                        fwd_lattice[i, j, k] = log_emitprob_frame[i, j, k] + logsumexp(wbuf)
+        phmmc._forward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
+                       log_emitprob_frame, log_initprob, log_transprob, fwd_lattice)
 
         log_likelihood = logsumexp(fwd_lattice[shape_x - 1, shape_y - 1, :])
 
@@ -342,27 +326,12 @@ class PHMM:
     def _backward(self, log_emitprob_frame, log_transprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        bwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * MINF
+        bwd_lattice = np.zeros((shape_x, shape_y, n_hstates))
 
-        bwd_lattice[shape_x-1, shape_y-1, :] = 0
-
-        for i in reversed(range(shape_x)):
-            for j in reversed(range(shape_y)):
-
-                if i == shape_x - 1 and j == shape_y - 1:
-                    continue
-
-                for k in range(n_hstates):
-                    wbuf = np.ones(n_hstates) * MINF
-
-                    for l in range(n_hstates):
-                        di, dj = self._delta_index(l)
-                        _i, _j = i + di, j + dj
-
-                        if _i < shape_x and _j < shape_y:
-                            wbuf[l] = bwd_lattice[_i, _j, l] + log_transprob[k, l] + log_emitprob_frame[_i, _j, l]
-
-                    bwd_lattice[i, j, k] = logsumexp(wbuf)
+        phmmc._backward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
+                       log_emitprob_frame, log_transprob, bwd_lattice)
 
         return bwd_lattice
+
+
 
