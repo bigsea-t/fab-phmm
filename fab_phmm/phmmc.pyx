@@ -85,20 +85,20 @@ def _backward(int shape_x,
 
     with nogil:
 
-        for k in reversed(range(n_hstates)):
+        for k in range(n_hstates):
             bwd_lattice[shape_x - 1, shape_y - 1, k] = 0
 
         for t in reversed(range(shape_x)):
-            for u in range(shape_y):
+            for u in reversed(range(shape_y)):
 
                 if t == shape_x - 1 and u == shape_y - 1:
                      continue
 
                 for k in range(n_hstates):
                     for l in range(n_hstates):
-                        p = hstate_properties[k]
-                        r = t - dx[p]
-                        s = u - dy[p]
+                        p = hstate_properties[l]
+                        r = t + dx[p]
+                        s = u + dy[p]
 
                         if r >= shape_x or s >= shape_y:
                             wbuf[l] = - INFINITY
@@ -107,13 +107,3 @@ def _backward(int shape_x,
                                 + log_emitprob_frame[r, s, l]
 
                         bwd_lattice[t, u, k] = _logsumexp(wbuf)
-
-
-
-
-
-
-
-
-
-

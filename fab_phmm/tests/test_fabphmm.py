@@ -65,9 +65,9 @@ class TestFABPHMM(unittest.TestCase):
 
 
     def test_fit(self):
-        max_iter = 30
+        max_iter = 100
         xseqs, yseqs = self.sample_from_a_model(n_samples=100, len_seq=10)
-        model = self.random_model(n_match_states=1, n_ins_states=5)
+        model = self.random_model(n_match_states=1, n_ins_states=3)
         model.fit(xseqs, yseqs, max_iter=max_iter)
 
 

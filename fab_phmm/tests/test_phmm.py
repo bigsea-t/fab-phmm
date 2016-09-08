@@ -124,6 +124,7 @@ class TestPHMM(unittest.TestCase):
         _test_if_correct(xseq, yseq)
 
     def test_forward(self):
+        print("test forward")
         xseq = np.array([0])
         yseq = np.array([1])
 
@@ -166,11 +167,11 @@ class TestPHMM(unittest.TestCase):
     def test_fit(self):
         N = 100
 
-        xseqs = [np.array([0,1,3,3,0,0,2,2,2]) for _ in range(N)]
-        yseqs = [np.array([0,2,1,3,3,2,2,2]) for _ in range(N)]
+        xseqs = [np.array([0,1,0,1,2,3]) for _ in range(N)]
+        yseqs = [np.array([0,0,1,2,3,3]) for _ in range(N)]
 
         model = self.model
-        n_iter = 3
+        n_iter = 5
 
         def score_seqs():
             ll = 0

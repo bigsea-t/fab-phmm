@@ -2225,17 +2225,17 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
   PyObject *__pyx_t_5 = NULL;
   __Pyx_memviewslice __pyx_t_6 = { 0, 0, { 0 }, { 0 }, { 0 } };
   int __pyx_t_7;
-  Py_ssize_t __pyx_t_8;
+  int __pyx_t_8;
   Py_ssize_t __pyx_t_9;
   Py_ssize_t __pyx_t_10;
-  int __pyx_t_11;
+  Py_ssize_t __pyx_t_11;
   int __pyx_t_12;
   int __pyx_t_13;
   int __pyx_t_14;
   int __pyx_t_15;
   int __pyx_t_16;
   int __pyx_t_17;
-  int __pyx_t_18;
+  Py_ssize_t __pyx_t_18;
   Py_ssize_t __pyx_t_19;
   Py_ssize_t __pyx_t_20;
   Py_ssize_t __pyx_t_21;
@@ -2251,7 +2251,6 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
   Py_ssize_t __pyx_t_31;
   Py_ssize_t __pyx_t_32;
   Py_ssize_t __pyx_t_33;
-  Py_ssize_t __pyx_t_34;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -2309,7 +2308,7 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  * 
  *     with nogil:             # <<<<<<<<<<<<<<
  * 
- *         for k in reversed(range(n_hstates)):
+ *         for k in range(n_hstates):
  */
   {
       #ifdef WITH_THREAD
@@ -2321,31 +2320,32 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
         /* "fab_phmm/phmmc.pyx":88
  *     with nogil:
  * 
- *         for k in reversed(range(n_hstates)):             # <<<<<<<<<<<<<<
+ *         for k in range(n_hstates):             # <<<<<<<<<<<<<<
  *             bwd_lattice[shape_x - 1, shape_y - 1, k] = 0
  * 
  */
-        for (__pyx_t_7 = __pyx_v_n_hstates-1; __pyx_t_7 >= 0; __pyx_t_7-=1) {
-          __pyx_v_k = __pyx_t_7;
+        __pyx_t_7 = __pyx_v_n_hstates;
+        for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
+          __pyx_v_k = __pyx_t_8;
 
           /* "fab_phmm/phmmc.pyx":89
  * 
- *         for k in reversed(range(n_hstates)):
+ *         for k in range(n_hstates):
  *             bwd_lattice[shape_x - 1, shape_y - 1, k] = 0             # <<<<<<<<<<<<<<
  * 
  *         for t in reversed(range(shape_x)):
  */
-          __pyx_t_8 = (__pyx_v_shape_x - 1);
-          __pyx_t_9 = (__pyx_v_shape_y - 1);
-          __pyx_t_10 = __pyx_v_k;
-          *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_8 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_9 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_10 * __pyx_v_bwd_lattice.strides[2]) )) = 0.0;
+          __pyx_t_9 = (__pyx_v_shape_x - 1);
+          __pyx_t_10 = (__pyx_v_shape_y - 1);
+          __pyx_t_11 = __pyx_v_k;
+          *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_9 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_10 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_11 * __pyx_v_bwd_lattice.strides[2]) )) = 0.0;
         }
 
         /* "fab_phmm/phmmc.pyx":91
  *             bwd_lattice[shape_x - 1, shape_y - 1, k] = 0
  * 
  *         for t in reversed(range(shape_x)):             # <<<<<<<<<<<<<<
- *             for u in range(shape_y):
+ *             for u in reversed(range(shape_y)):
  * 
  */
         for (__pyx_t_7 = __pyx_v_shape_x-1; __pyx_t_7 >= 0; __pyx_t_7-=1) {
@@ -2354,31 +2354,30 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
           /* "fab_phmm/phmmc.pyx":92
  * 
  *         for t in reversed(range(shape_x)):
- *             for u in range(shape_y):             # <<<<<<<<<<<<<<
+ *             for u in reversed(range(shape_y)):             # <<<<<<<<<<<<<<
  * 
  *                 if t == shape_x - 1 and u == shape_y - 1:
  */
-          __pyx_t_11 = __pyx_v_shape_y;
-          for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
-            __pyx_v_u = __pyx_t_12;
+          for (__pyx_t_8 = __pyx_v_shape_y-1; __pyx_t_8 >= 0; __pyx_t_8-=1) {
+            __pyx_v_u = __pyx_t_8;
 
             /* "fab_phmm/phmmc.pyx":94
- *             for u in range(shape_y):
+ *             for u in reversed(range(shape_y)):
  * 
  *                 if t == shape_x - 1 and u == shape_y - 1:             # <<<<<<<<<<<<<<
  *                      continue
  * 
  */
-            __pyx_t_14 = ((__pyx_v_t == (__pyx_v_shape_x - 1)) != 0);
-            if (__pyx_t_14) {
+            __pyx_t_13 = ((__pyx_v_t == (__pyx_v_shape_x - 1)) != 0);
+            if (__pyx_t_13) {
             } else {
-              __pyx_t_13 = __pyx_t_14;
+              __pyx_t_12 = __pyx_t_13;
               goto __pyx_L13_bool_binop_done;
             }
-            __pyx_t_14 = ((__pyx_v_u == (__pyx_v_shape_y - 1)) != 0);
-            __pyx_t_13 = __pyx_t_14;
+            __pyx_t_13 = ((__pyx_v_u == (__pyx_v_shape_y - 1)) != 0);
+            __pyx_t_12 = __pyx_t_13;
             __pyx_L13_bool_binop_done:;
-            if (__pyx_t_13) {
+            if (__pyx_t_12) {
 
               /* "fab_phmm/phmmc.pyx":95
  * 
@@ -2390,7 +2389,7 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
               goto __pyx_L10_continue;
 
               /* "fab_phmm/phmmc.pyx":94
- *             for u in range(shape_y):
+ *             for u in reversed(range(shape_y)):
  * 
  *                 if t == shape_x - 1 and u == shape_y - 1:             # <<<<<<<<<<<<<<
  *                      continue
@@ -2403,72 +2402,72 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  * 
  *                 for k in range(n_hstates):             # <<<<<<<<<<<<<<
  *                     for l in range(n_hstates):
- *                         p = hstate_properties[k]
+ *                         p = hstate_properties[l]
  */
-            __pyx_t_15 = __pyx_v_n_hstates;
-            for (__pyx_t_16 = 0; __pyx_t_16 < __pyx_t_15; __pyx_t_16+=1) {
-              __pyx_v_k = __pyx_t_16;
+            __pyx_t_14 = __pyx_v_n_hstates;
+            for (__pyx_t_15 = 0; __pyx_t_15 < __pyx_t_14; __pyx_t_15+=1) {
+              __pyx_v_k = __pyx_t_15;
 
               /* "fab_phmm/phmmc.pyx":98
  * 
  *                 for k in range(n_hstates):
  *                     for l in range(n_hstates):             # <<<<<<<<<<<<<<
- *                         p = hstate_properties[k]
- *                         r = t - dx[p]
+ *                         p = hstate_properties[l]
+ *                         r = t + dx[p]
  */
-              __pyx_t_17 = __pyx_v_n_hstates;
-              for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
-                __pyx_v_l = __pyx_t_18;
+              __pyx_t_16 = __pyx_v_n_hstates;
+              for (__pyx_t_17 = 0; __pyx_t_17 < __pyx_t_16; __pyx_t_17+=1) {
+                __pyx_v_l = __pyx_t_17;
 
                 /* "fab_phmm/phmmc.pyx":99
  *                 for k in range(n_hstates):
  *                     for l in range(n_hstates):
- *                         p = hstate_properties[k]             # <<<<<<<<<<<<<<
- *                         r = t - dx[p]
- *                         s = u - dy[p]
+ *                         p = hstate_properties[l]             # <<<<<<<<<<<<<<
+ *                         r = t + dx[p]
+ *                         s = u + dy[p]
  */
-                __pyx_t_19 = __pyx_v_k;
-                __pyx_v_p = (*((int *) ( /* dim=0 */ (__pyx_v_hstate_properties.data + __pyx_t_19 * __pyx_v_hstate_properties.strides[0]) )));
+                __pyx_t_18 = __pyx_v_l;
+                __pyx_v_p = (*((int *) ( /* dim=0 */ (__pyx_v_hstate_properties.data + __pyx_t_18 * __pyx_v_hstate_properties.strides[0]) )));
 
                 /* "fab_phmm/phmmc.pyx":100
  *                     for l in range(n_hstates):
- *                         p = hstate_properties[k]
- *                         r = t - dx[p]             # <<<<<<<<<<<<<<
- *                         s = u - dy[p]
+ *                         p = hstate_properties[l]
+ *                         r = t + dx[p]             # <<<<<<<<<<<<<<
+ *                         s = u + dy[p]
  * 
  */
                 if (unlikely(!__pyx_v_8fab_phmm_5phmmc_dx.memview)) { __Pyx_RaiseUnboundMemoryviewSliceNogil("dx"); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 100; __pyx_clineno = __LINE__; goto __pyx_L4_error;} }
-                __pyx_t_20 = __pyx_v_p;
-                __pyx_v_r = (__pyx_v_t - (*((int *) ( /* dim=0 */ (__pyx_v_8fab_phmm_5phmmc_dx.data + __pyx_t_20 * __pyx_v_8fab_phmm_5phmmc_dx.strides[0]) ))));
+                __pyx_t_19 = __pyx_v_p;
+                __pyx_v_r = (__pyx_v_t + (*((int *) ( /* dim=0 */ (__pyx_v_8fab_phmm_5phmmc_dx.data + __pyx_t_19 * __pyx_v_8fab_phmm_5phmmc_dx.strides[0]) ))));
 
                 /* "fab_phmm/phmmc.pyx":101
- *                         p = hstate_properties[k]
- *                         r = t - dx[p]
- *                         s = u - dy[p]             # <<<<<<<<<<<<<<
+ *                         p = hstate_properties[l]
+ *                         r = t + dx[p]
+ *                         s = u + dy[p]             # <<<<<<<<<<<<<<
  * 
  *                         if r >= shape_x or s >= shape_y:
  */
                 if (unlikely(!__pyx_v_8fab_phmm_5phmmc_dy.memview)) { __Pyx_RaiseUnboundMemoryviewSliceNogil("dy"); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 101; __pyx_clineno = __LINE__; goto __pyx_L4_error;} }
-                __pyx_t_21 = __pyx_v_p;
-                __pyx_v_s = (__pyx_v_u - (*((int *) ( /* dim=0 */ (__pyx_v_8fab_phmm_5phmmc_dy.data + __pyx_t_21 * __pyx_v_8fab_phmm_5phmmc_dy.strides[0]) ))));
+                __pyx_t_20 = __pyx_v_p;
+                __pyx_v_s = (__pyx_v_u + (*((int *) ( /* dim=0 */ (__pyx_v_8fab_phmm_5phmmc_dy.data + __pyx_t_20 * __pyx_v_8fab_phmm_5phmmc_dy.strides[0]) ))));
 
                 /* "fab_phmm/phmmc.pyx":103
- *                         s = u - dy[p]
+ *                         s = u + dy[p]
  * 
  *                         if r >= shape_x or s >= shape_y:             # <<<<<<<<<<<<<<
  *                             wbuf[l] = - INFINITY
  *                         else:
  */
-                __pyx_t_14 = ((__pyx_v_r >= __pyx_v_shape_x) != 0);
-                if (!__pyx_t_14) {
+                __pyx_t_13 = ((__pyx_v_r >= __pyx_v_shape_x) != 0);
+                if (!__pyx_t_13) {
                 } else {
-                  __pyx_t_13 = __pyx_t_14;
+                  __pyx_t_12 = __pyx_t_13;
                   goto __pyx_L20_bool_binop_done;
                 }
-                __pyx_t_14 = ((__pyx_v_s >= __pyx_v_shape_y) != 0);
-                __pyx_t_13 = __pyx_t_14;
+                __pyx_t_13 = ((__pyx_v_s >= __pyx_v_shape_y) != 0);
+                __pyx_t_12 = __pyx_t_13;
                 __pyx_L20_bool_binop_done:;
-                if (__pyx_t_13) {
+                if (__pyx_t_12) {
 
                   /* "fab_phmm/phmmc.pyx":104
  * 
@@ -2477,11 +2476,11 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  *                         else:
  *                             wbuf[l] = bwd_lattice[r, s, l] + log_transprob[k, l] \
  */
-                  __pyx_t_22 = __pyx_v_l;
-                  *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=0 */ (__pyx_v_wbuf.data + __pyx_t_22 * __pyx_v_wbuf.strides[0]) )) = (-NPY_INFINITY);
+                  __pyx_t_21 = __pyx_v_l;
+                  *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=0 */ (__pyx_v_wbuf.data + __pyx_t_21 * __pyx_v_wbuf.strides[0]) )) = (-NPY_INFINITY);
 
                   /* "fab_phmm/phmmc.pyx":103
- *                         s = u - dy[p]
+ *                         s = u + dy[p]
  * 
  *                         if r >= shape_x or s >= shape_y:             # <<<<<<<<<<<<<<
  *                             wbuf[l] = - INFINITY
@@ -2506,11 +2505,11 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  *                                 + log_emitprob_frame[r, s, l]
  * 
  */
-                  __pyx_t_23 = __pyx_v_r;
-                  __pyx_t_24 = __pyx_v_s;
-                  __pyx_t_25 = __pyx_v_l;
-                  __pyx_t_26 = __pyx_v_k;
-                  __pyx_t_27 = __pyx_v_l;
+                  __pyx_t_22 = __pyx_v_r;
+                  __pyx_t_23 = __pyx_v_s;
+                  __pyx_t_24 = __pyx_v_l;
+                  __pyx_t_25 = __pyx_v_k;
+                  __pyx_t_26 = __pyx_v_l;
 
                   /* "fab_phmm/phmmc.pyx":107
  *                         else:
@@ -2519,9 +2518,9 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  * 
  *                         bwd_lattice[t, u, k] = _logsumexp(wbuf)
  */
-                  __pyx_t_28 = __pyx_v_r;
-                  __pyx_t_29 = __pyx_v_s;
-                  __pyx_t_30 = __pyx_v_l;
+                  __pyx_t_27 = __pyx_v_r;
+                  __pyx_t_28 = __pyx_v_s;
+                  __pyx_t_29 = __pyx_v_l;
 
                   /* "fab_phmm/phmmc.pyx":106
  *                             wbuf[l] = - INFINITY
@@ -2530,8 +2529,8 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  *                                 + log_emitprob_frame[r, s, l]
  * 
  */
-                  __pyx_t_31 = __pyx_v_l;
-                  *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=0 */ (__pyx_v_wbuf.data + __pyx_t_31 * __pyx_v_wbuf.strides[0]) )) = (((*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_23 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_24 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_25 * __pyx_v_bwd_lattice.strides[2]) ))) + (*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_log_transprob.data + __pyx_t_26 * __pyx_v_log_transprob.strides[0]) ) + __pyx_t_27 * __pyx_v_log_transprob.strides[1]) )))) + (*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_log_emitprob_frame.data + __pyx_t_28 * __pyx_v_log_emitprob_frame.strides[0]) ) + __pyx_t_29 * __pyx_v_log_emitprob_frame.strides[1]) ) + __pyx_t_30 * __pyx_v_log_emitprob_frame.strides[2]) ))));
+                  __pyx_t_30 = __pyx_v_l;
+                  *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=0 */ (__pyx_v_wbuf.data + __pyx_t_30 * __pyx_v_wbuf.strides[0]) )) = (((*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_22 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_23 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_24 * __pyx_v_bwd_lattice.strides[2]) ))) + (*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_log_transprob.data + __pyx_t_25 * __pyx_v_log_transprob.strides[0]) ) + __pyx_t_26 * __pyx_v_log_transprob.strides[1]) )))) + (*((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_log_emitprob_frame.data + __pyx_t_27 * __pyx_v_log_emitprob_frame.strides[0]) ) + __pyx_t_28 * __pyx_v_log_emitprob_frame.strides[1]) ) + __pyx_t_29 * __pyx_v_log_emitprob_frame.strides[2]) ))));
                 }
                 __pyx_L19:;
 
@@ -2542,10 +2541,10 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  * 
  * 
  */
-                __pyx_t_32 = __pyx_v_t;
-                __pyx_t_33 = __pyx_v_u;
-                __pyx_t_34 = __pyx_v_k;
-                *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_32 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_33 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_34 * __pyx_v_bwd_lattice.strides[2]) )) = __pyx_f_8fab_phmm_5phmmc__logsumexp(__pyx_v_wbuf);
+                __pyx_t_31 = __pyx_v_t;
+                __pyx_t_32 = __pyx_v_u;
+                __pyx_t_33 = __pyx_v_k;
+                *((__pyx_t_8fab_phmm_5phmmc_dtype_t *) ( /* dim=2 */ (( /* dim=1 */ (( /* dim=0 */ (__pyx_v_bwd_lattice.data + __pyx_t_31 * __pyx_v_bwd_lattice.strides[0]) ) + __pyx_t_32 * __pyx_v_bwd_lattice.strides[1]) ) + __pyx_t_33 * __pyx_v_bwd_lattice.strides[2]) )) = __pyx_f_8fab_phmm_5phmmc__logsumexp(__pyx_v_wbuf);
               }
             }
             __pyx_L10_continue:;
@@ -2558,7 +2557,7 @@ static PyObject *__pyx_pf_8fab_phmm_5phmmc_2_backward(CYTHON_UNUSED PyObject *__
  * 
  *     with nogil:             # <<<<<<<<<<<<<<
  * 
- *         for k in reversed(range(n_hstates)):
+ *         for k in range(n_hstates):
  */
       /*finally:*/ {
         /*normal exit:*/{
@@ -14906,7 +14905,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_builtin_reversed = __Pyx_GetBuiltinName(__pyx_n_s_reversed); if (!__pyx_builtin_reversed) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 88; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_builtin_reversed = __Pyx_GetBuiltinName(__pyx_n_s_reversed); if (!__pyx_builtin_reversed) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 91; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) {__pyx_filename = __pyx_f[1]; __pyx_lineno = 129; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) {__pyx_filename = __pyx_f[1]; __pyx_lineno = 144; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) {__pyx_filename = __pyx_f[1]; __pyx_lineno = 147; __pyx_clineno = __LINE__; goto __pyx_L1_error;}

@@ -4,6 +4,8 @@ EPS = np.finfo(np.float).eps
 
 def logsumexp(arr):
     vmax = arr.max()
+    if vmax == -np.inf:
+        return -np.inf
     out = np.log(np.sum(np.exp(arr - vmax)))
     out += vmax
     return out

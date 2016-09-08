@@ -1,4 +1,5 @@
-from fab_phmm.utils import *
+import numpy as np
+from fab_phmm.utils import EPS, log_, logsumexp
 from fab_phmm import phmmc
 
 
@@ -7,7 +8,7 @@ from fab_phmm import phmmc
 
 class PHMM:
 
-    def __init__(self, n_match_states = 1, n_xins_states = 2, n_yins_states=2, n_simbols=4,
+    def __init__(self, n_match_states = 1, n_xins_states=2, n_yins_states=2, n_simbols=4,
                  initprob=None, transprob=None, emitprob=None):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
@@ -232,8 +233,8 @@ class PHMM:
 
                 self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
 
-            self._update_params(sstats)
             print("log-likelihood", ll_all)
+            self._update_params(sstats)
 
         self._params_valid = True
 
@@ -306,9 +307,6 @@ class PHMM:
         gamma = np.exp(log_gamma)
         xi = np.exp(log_xi)
 
-        print((gamma == np.inf).any())
-        print((xi == np.inf).any())
-
         return gamma, xi
 
     def _forward(self, log_emitprob_frame, log_transprob, log_initprob):
@@ -326,12 +324,9 @@ class PHMM:
     def _backward(self, log_emitprob_frame, log_transprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        bwd_lattice = np.zeros((shape_x, shape_y, n_hstates))
+        bwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * (-np.inf)
 
         phmmc._backward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
                        log_emitprob_frame, log_transprob, bwd_lattice)
 
         return bwd_lattice
-
-
-
