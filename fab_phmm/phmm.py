@@ -36,6 +36,12 @@ class PHMM:
         self._initprob = initprob
 
         transprob = np.random.rand(self._n_hstates, self._n_hstates)
+
+        for j in range(self._n_match_states, self._n_hstates):
+            for k in range(j+1, self._n_hstates):
+                transprob[j, k] = 0
+                transprob[k, j] = 0
+
         transprob /= np.sum(transprob, axis=1)[:, np.newaxis]
         self._transprob = transprob
 
