@@ -30,6 +30,7 @@ class PHMM:
             self._params_valid = True
 
     def _params_random_init(self):
+        print("params random init")
         initprob = np.random.rand(self._n_hstates)
         initprob /= np.sum(initprob)
         self._initprob = initprob

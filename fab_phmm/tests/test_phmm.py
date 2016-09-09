@@ -29,7 +29,7 @@ class TestPHMM(unittest.TestCase):
 
             initprob = np.array([self.initprob_match, self.initprob_ins, self.initprob_ins])
 
-            transprob = np.array([[.9, .05, .05],
+            transprob = np.array([[.8, .1, .1],
                                   [.6, .4, 0],
                                   [.6, 0, .4]])
 
@@ -50,6 +50,7 @@ class TestPHMM(unittest.TestCase):
                                n_simbols=n_simbols)
 
     def test_decoder(self):
+        print("test decoder")
         def decode(xseq, yseq):
 
             ll, map_hstates = self.model.decode(xseq, yseq)
@@ -80,6 +81,7 @@ class TestPHMM(unittest.TestCase):
         np.testing.assert_array_equal(ans, decode(xseq, yseq))
 
     def test_gen_log_emitprob_frame(self):
+        print("test gen log emitprob frame")
 
         def _gen_ans(xseq, yseq):
             len_x = xseq.shape[0]
@@ -154,7 +156,8 @@ class TestPHMM(unittest.TestCase):
     def test_backward(self):
         pass
 
-    def test_sample(self):
+    def test_sample_len(self):
+        print("test sample len")
         model = self.model
         n_samples = 100
 
@@ -165,6 +168,7 @@ class TestPHMM(unittest.TestCase):
         self.assertEqual(yseq.shape[0], n_samples)
 
     def test_fit(self):
+        print("\n test fit")
         N = 100
 
         xseqs = [np.array([0,1,0,1,2,3]) for _ in range(N)]
@@ -225,6 +229,7 @@ class TestPHMM(unittest.TestCase):
     #     self.setUp()
 
     def test_sample(self):
+        print("\ntest sample")
         model = self.model
         n_samples = 100000
         decimal = 2
@@ -252,6 +257,22 @@ class TestPHMM(unittest.TestCase):
         yins_freqs /= n_samples
 
         np.testing.assert_almost_equal(yins_freqs, model._emitprob[2], decimal=decimal)
+
+        init_freqs = np.zeros(model._n_hstates)
+        for i in range(n_samples):
+            _, _, hs = model.sample(n_samples=1)
+            init_freqs[hs[0]] += 1
+        init_freqs /= n_samples
+
+        np.testing.assert_almost_equal(init_freqs, model._initprob, decimal=decimal)
+
+        trans_freqs = np.zeros((model._n_hstates, model._n_hstates))
+        _, _, hs = model.sample(n_samples * 10)
+        print(hs.shape[0])
+        for i in range(n_samples-1):
+            trans_freqs[hs[i], hs[i+1]] += 1
+        trans_freqs /= np.sum(trans_freqs, axis=1)[:, np.newaxis]
+        np.testing.assert_almost_equal(trans_freqs, model._transprob, decimal=decimal)
 
 if __name__ == '__main__':
     unittest.main()
