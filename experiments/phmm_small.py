@@ -3,7 +3,7 @@ import inspect
 from experiments.utils import small_model, sample_from_model
 
 
-def exec():
+def main():
     """
     PHMM small
     sample from small mode and fit on PHMM
@@ -20,4 +20,4 @@ def exec():
     fmodel.fit(xseqs, yseqs, max_iter=10000, verbose=True)
 
 if __name__ == '__main__':
-    exec()
+    main()

@@ -3,7 +3,7 @@ import inspect
 from experiments.utils import med_model, sample_from_model
 
 
-def exec():
+def main():
     """
     PHMM small
     sample from small mode and fit on PHMM
@@ -23,4 +23,4 @@ def exec():
 
 
 if __name__ == '__main__':
-    exec()
+    main()

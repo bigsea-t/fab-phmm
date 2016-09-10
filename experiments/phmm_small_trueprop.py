@@ -3,7 +3,7 @@ import inspect
 from experiments.utils import small_model, sample_from_model
 
 
-def exec():
+def main():
     """
     sample from small model and fit to PHMM
     start from true props
@@ -23,7 +23,7 @@ def exec():
     fmodel.fit(xseqs, yseqs, max_iter=10000, verbose=True)
 
 if __name__ == '__main__':
-    exec()
+    main()
 
 
 
