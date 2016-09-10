@@ -1,12 +1,13 @@
 from fab_phmm.phmm import PHMM
 from fab_phmm.utils import *
-
+import warnings
 
 class FABPHMM(PHMM):
     
     def __init__(self, n_match_states=1, n_xins_states=2, n_yins_states=2,
                  n_simbols=4, initprob=None, transprob=None, emitprob=None,
-                 symmetric_emission=False, shrink_threshold=.001):
+                 symmetric_emission=False, shrink_threshold=1e-2,
+                 stop_threshold=1e-2):
         
         super(FABPHMM, self).__init__(n_match_states=n_match_states,
                                       n_xins_states=n_xins_states,
@@ -14,7 +15,8 @@ class FABPHMM(PHMM):
                                       n_simbols=n_simbols,
                                       initprob=initprob,
                                       transprob=transprob,
-                                      emitprob=emitprob)
+                                      emitprob=emitprob,
+                                      stop_threshold=stop_threshold)
         # implement symmetric one for the first program
 
         self._symmetric_emission = symmetric_emission
@@ -62,7 +64,7 @@ class FABPHMM(PHMM):
         xshape, yshape, n_hstates = log_emitprob_frame.shape
 
         norm = np.ones((xshape, yshape)) * norm_1
-        norm[-1] = norm_2
+        norm[-1, -1] = norm_2
 
         pseudo_prob = np.ones((xshape, yshape, n_hstates)) * (score_1 / norm_1)[np.newaxis, np.newaxis, :]
         pseudo_prob[-1, -1, :] = score_2 / norm_2
@@ -106,11 +108,13 @@ class FABPHMM(PHMM):
     def _init_sufficient_statistics(self):
         sstats = super(FABPHMM, self)._init_sufficient_statistics()
         sstats["qsum"] = np.zeros(self._n_hstates)
+        sstats["norm"] = 0
         return sstats
 
-    def _accumulate_sufficient_statistics(self, sstats, gamma, xi, xseq, yseq):
+    def _accumulate_sufficient_statistics(self, sstats, gamma, xi, xseq, yseq, norm):
         super(FABPHMM, self)._accumulate_sufficient_statistics(sstats, gamma, xi, xseq, yseq)
         sstats["qsum"] += np.sum(gamma, axis=(0, 1))
+        sstats["norm"] += np.sum(norm)
 
     def _gen_random_qsum(self, xseqs, yseqs):
         n_seqs = len(xseqs)
@@ -126,7 +130,16 @@ class FABPHMM(PHMM):
         super(FABPHMM, self)._update_params(sstats)
         self._qsum = sstats["qsum"]
 
-    def fit(self, xseqs, yseqs, max_iter=1000):
+    def _calculate_fic(self, sstats, free_energy, n_seq):
+        dim_init, dims_trans, dims_emit = self._gen_dims()
+        fic = free_energy + sstats["norm"] \
+              + dim_init / 2 * np.log(n_seq) \
+              + np.sum(dims_trans / 2 * np.log(sstats["qsum"]) -1) \
+              + np.sum(dims_emit / 2 * np.log(sstats["qsum"]) - 1)
+
+        return fic
+
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
         if not self._params_valid:
             self._params_random_init()
             self._params_valid = True
@@ -134,6 +147,8 @@ class FABPHMM(PHMM):
         assert(len(xseqs) == len(yseqs))
 
         self._qsum = self._gen_random_qsum(xseqs, yseqs)
+
+        fic_prev = - np.inf
 
         for i in range(1, max_iter + 1):
             print("{}-th iteration...".format(i))
@@ -144,10 +159,7 @@ class FABPHMM(PHMM):
 
             dim_init, dims_trans, dims_emit = self._gen_dims()
 
-            log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[0], yseqs[0])
-            norm, pseudo_prob = self._gen_pseudo_prob(log_emitprob_frame, dims_trans, dims_emit)
-            # print(pseudo_prob[0,0,:])
-            # print(self._qsum)
+            fe_all = 0
 
             for j in range(len(xseqs)):
                 log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
@@ -156,17 +168,37 @@ class FABPHMM(PHMM):
                 fab_log_emitprob_frame = log_emitprob_frame + log_(pseudo_prob)
 
                 free_energy, fwd_lattice = self._forward(fab_log_emitprob_frame, log_transprob, log_initprob)
+
+                fe_all += free_energy
+
                 bwd_lattice = self._backward(fab_log_emitprob_frame, log_transprob)
 
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, free_energy,
                                                              log_emitprob_frame, log_transprob)
 
-                self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
+                self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j], norm)
+
+            fic = self._calculate_fic(sstats, fe_all, len(xseqs))
+
+            if verbose:
+                self._print_states(ll=fic, i_iter=i)
+
+            if (fic - fic_prev) / len(xseqs) < self._stop_threshold:
+                if fic - fic_prev < 0:
+                    warnings.warn("fic decreased", RuntimeWarning)
+                else:
+                    print("end iteration with fic: {}".format(fic))
+                    return fic
+
+            fic_prev = fic
 
             self._update_params(sstats)
 
-            self._shrinkage_operation()
+            n_shrinked_states = self._shrinkage_operation()
+
+            if n_shrinked_states > 0:
+                fic_prev = - np.inf
             print("n_hstates", self._n_hstates)
             print()
 
-        return self
+        return fic

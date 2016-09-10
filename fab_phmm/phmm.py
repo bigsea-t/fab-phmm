@@ -9,7 +9,7 @@ from fab_phmm import phmmc
 class PHMM:
 
     def __init__(self, n_match_states = 1, n_xins_states=2, n_yins_states=2, n_simbols=4,
-                 initprob=None, transprob=None, emitprob=None):
+                 initprob=None, transprob=None, emitprob=None, stop_threshold=1e-2):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
         self._emitprob = emitprob # [n_hstates, xdim, ydim] (usually xdim == ydim)
@@ -23,6 +23,8 @@ class PHMM:
         self._delta_index_list = [(1, 1), (1, 0), (0, 1)]
 
         self._n_simbols = n_simbols
+
+        self._stop_threshold = stop_threshold
 
         if initprob is None or transprob is None or emitprob is None:
             self._params_valid = False
@@ -212,7 +214,26 @@ class PHMM:
 
         return log_likelihood, np.array(map_hstates[1:])
 
-    def fit(self, xseqs, yseqs, max_iter=1000):
+    def _print_states(self, ll=None, i_iter=None):
+        if i_iter is not None:
+            print("{}th iter".format(i_iter))
+        if ll is not None:
+            print("ll")
+            print(ll)
+        print("n_hstates: {}".format(self._n_hstates))
+        print("n_match_states: {}".format(self._n_match_states))
+        print("n_xins_states: {}".format(self._n_xins_states))
+        print("n_yins_states: {}".format(self._n_yins_states))
+
+        print("trans")
+        print(self._transprob)
+        print("init")
+        print(self._initprob)
+        print("emit")
+        print(self._emitprob)
+        print()
+
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
 
         if not self._params_valid:
             self._params_random_init()
@@ -222,8 +243,9 @@ class PHMM:
         assert(len(xseqs) == len(yseqs))
         # is there better way to explain 0 in log space?(-inf?)
 
+        ll_all = - np.inf
         for i in range(1, max_iter + 1):
-            print("{}-th iteration...".format(i))
+            ll_all_prev = ll_all
             ll_all = 0
 
             sstats = self._init_sufficient_statistics()
@@ -240,12 +262,20 @@ class PHMM:
 
                 self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
 
-            print("log-likelihood", ll_all)
+            if verbose:
+                self._print_states(ll=ll, i_iter=i)
+
+            if (ll_all - ll_all_prev) / len(xseqs) < self._stop_threshold:
+                if ll_all - ll_all_prev < 0:
+                    raise RuntimeError("log-likelihood decreased")
+                else:
+                    return ll_all
+
             self._update_params(sstats)
 
         self._params_valid = True
 
-        return self
+        return ll_all
 
     def _init_sufficient_statistics(self):
         sstats = {}
