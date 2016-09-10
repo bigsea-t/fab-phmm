@@ -26,7 +26,7 @@ setup_options = dict(
     maintainer_email=MAINTAINER_EMAIL,
     license=LICENSE,
     url="https://github.com/hmmlearn/hmmlearn",
-    packages=["phmm", "fab_phmm.tests"],
+    packages=["fab_phmm", "fab_phmm.tests"],
     ext_modules=[
         Extension("fab_phmm.phmmc", ["fab_phmm/phmmc.c"],
                   extra_compile_args=["-O3"],
