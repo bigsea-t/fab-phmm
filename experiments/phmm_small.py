@@ -9,7 +9,7 @@ def main():
     sample from small mode and fit on PHMM
     """
     print(__name__)
-    print(inspect.getsource(exec))
+    print(inspect.getsource(main))
 
     smodel = small_model()
     fmodel = PHMM(n_match_states=1,

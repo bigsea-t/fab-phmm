@@ -9,7 +9,7 @@ def main():
     start from true props
     """
     print(__name__)
-    print(inspect.getsource(exec))
+    print(inspect.getsource(main))
 
     smodel = small_model()
     fmodel = PHMM(n_match_states=1,
