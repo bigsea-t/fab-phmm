@@ -7,8 +7,6 @@ from fab_phmm.utils import *
 class TestFABPHMM(unittest.TestCase):
 
     def random_model(self, n_match_states=2, n_ins_states=2):
-        initprob = transprob = emitprob = None
-
         return FABPHMM(n_match_states=n_match_states,
                        n_xins_states=n_ins_states,
                        n_yins_states=n_ins_states)

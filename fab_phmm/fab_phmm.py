@@ -7,7 +7,7 @@ class FABPHMM(PHMM):
     def __init__(self, n_match_states=1, n_xins_states=2, n_yins_states=2,
                  n_simbols=4, initprob=None, transprob=None, emitprob=None,
                  symmetric_emission=False, shrink_threshold=1e-2,
-                 stop_threshold=1e-2):
+                 stop_threshold=1e-2, link_hstates=False):
         
         super(FABPHMM, self).__init__(n_match_states=n_match_states,
                                       n_xins_states=n_xins_states,
@@ -16,7 +16,8 @@ class FABPHMM(PHMM):
                                       initprob=initprob,
                                       transprob=transprob,
                                       emitprob=emitprob,
-                                      stop_threshold=stop_threshold)
+                                      stop_threshold=stop_threshold,
+                                      link_hstates=link_hstates)
         # implement symmetric one for the first program
 
         self._symmetric_emission = symmetric_emission

@@ -9,7 +9,8 @@ from fab_phmm import phmmc
 class PHMM:
 
     def __init__(self, n_match_states = 1, n_xins_states=2, n_yins_states=2, n_simbols=4,
-                 initprob=None, transprob=None, emitprob=None, stop_threshold=1e-2):
+                 initprob=None, transprob=None, emitprob=None, stop_threshold=1e-2,
+                 link_hstates=False):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
         self._emitprob = emitprob # [n_hstates, xdim, ydim] (usually xdim == ydim)
@@ -26,6 +27,8 @@ class PHMM:
 
         self._stop_threshold = stop_threshold
 
+        self._link_hstates = link_hstates
+
         if initprob is None or transprob is None or emitprob is None:
             self._params_valid = False
         else:
@@ -39,10 +42,11 @@ class PHMM:
 
         transprob = np.random.rand(self._n_hstates, self._n_hstates)
 
-        for j in range(self._n_match_states, self._n_hstates):
-            for k in range(j+1, self._n_hstates):
-                transprob[j, k] = 0
-                transprob[k, j] = 0
+        if not self._link_hstates:
+            for j in range(self._n_match_states, self._n_hstates):
+                for k in range(j+1, self._n_hstates):
+                    transprob[j, k] = 0
+                    transprob[k, j] = 0
 
         transprob /= np.sum(transprob, axis=1)[:, np.newaxis]
         self._transprob = transprob
