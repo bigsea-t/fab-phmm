@@ -16,7 +16,7 @@ def main():
                      n_xins_states=10,
                      n_yins_states=10,
                      shrink_threshold=1e-2,
-                     stop_threshold=1e-2)
+                     stop_threshold=1e-6)
 
     xseqs, yseqs = sample_from_model(smodel, n_samples=200, len_seq=30)
     fmodel.fit(xseqs, yseqs, max_iter=10000, verbose=True)

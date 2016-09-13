@@ -29,6 +29,8 @@ class PHMM:
 
         self._link_hstates = link_hstates
 
+        self._last_score = None
+
         if initprob is None or transprob is None or emitprob is None:
             self._params_valid = False
         else:
@@ -229,12 +231,12 @@ class PHMM:
         print("n_xins_states: {}".format(self._n_xins_states))
         print("n_yins_states: {}".format(self._n_yins_states))
 
-        print("trans")
-        print(self._transprob)
-        print("init")
-        print(self._initprob)
-        print("emit")
-        print(self._emitprob)
+        # print("trans")
+        # print(self._transprob)
+        # print("init")
+        # print(self._initprob)
+        # print("emit")
+        # print(self._emitprob)
         print()
 
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
@@ -247,50 +249,51 @@ class PHMM:
         assert(len(xseqs) == len(yseqs))
         # is there better way to explain 0 in log space?(-inf?)
 
-        ll_all = - np.inf
-        for i in range(1, max_iter + 1):
-            ll_all_prev = ll_all
-            ll_all = 0
+        if self._last_score is None:
+            self._last_score = - np.inf
 
+        for i in range(1, max_iter + 1):
             sstats = self._init_sufficient_statistics()
 
             for j in range(len(xseqs)):
                 log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
 
                 ll, fwd_lattice = self._forward(log_emitprob_frame, log_transprob, log_initprob)
-                ll_all += ll
                 bwd_lattice = self._backward(log_emitprob_frame, log_transprob)
 
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
                                                              log_emitprob_frame, log_transprob)
 
-                self._accumulate_sufficient_statistics(sstats, gamma, xi, xseqs[j], yseqs[j])
+                self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseqs[j], yseqs[j])
 
             if verbose:
                 self._print_states(ll=ll, i_iter=i)
 
-            if (ll_all - ll_all_prev) / len(xseqs) < self._stop_threshold:
-                if ll_all - ll_all_prev < 0:
+            if (sstats["score"] - self._last_score) / len(xseqs) < self._stop_threshold:
+                if sstats["score"] - self._last_score < 0:
                     raise RuntimeError("log-likelihood decreased")
                 else:
-                    return ll_all
+                    return self
 
             self._update_params(sstats)
 
         self._params_valid = True
 
-        return ll_all
+        return self
 
     def _init_sufficient_statistics(self):
         sstats = {}
         sstats["init"] = np.zeros_like(self._initprob)
         sstats["trans"] = np.zeros_like(self._transprob)
         sstats["emit"] = np.zeros_like(self._emitprob)
+        sstats["score"] = 0
         return sstats
 
-    def _accumulate_sufficient_statistics(self, sstats, gamma, xi, xseq, yseq):
+    def _accumulate_sufficient_statistics(self, sstats, ll, gamma, xi, xseq, yseq):
 
         shape_x, shape_y, n_hstates = gamma.shape
+
+        sstats["score"] += ll
 
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
@@ -314,6 +317,7 @@ class PHMM:
                         sstats["emit"][k, :, y] += gamma[t, u + 1, k]
 
     def _update_params(self, sstats):
+        self._last_score = sstats["score"]
         self._initprob = sstats["init"] / (np.sum(sstats["init"]) + EPS)
         self._transprob = sstats["trans"] / (np.sum(sstats["trans"], axis=1)[:, np.newaxis] + EPS)
 
