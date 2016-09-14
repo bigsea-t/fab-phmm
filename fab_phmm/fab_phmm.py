@@ -197,6 +197,10 @@ class FABPHMM(PHMM):
             if verbose:
                 self._print_states(ll=fic, i_iter=i)
 
+            if fic == np.inf:
+                warnings.warn("fic diverge to infinity", RuntimeWarning)
+                return fic
+
             if (fic - self._last_score) / n_seq < self._stop_threshold:
                 if fic - self._last_score < 0:
                     warnings.warn("fic decreased", RuntimeWarning)
