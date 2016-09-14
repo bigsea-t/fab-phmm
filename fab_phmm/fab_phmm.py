@@ -4,13 +4,13 @@ import warnings
 
 
 class FABPHMM(PHMM):
-    
+
     def __init__(self, n_match_states=1, n_xins_states=2, n_yins_states=2,
                  n_simbols=4, initprob=None, transprob=None, emitprob=None,
                  symmetric_emission=False, shrink_threshold=1e-2,
                  stop_threshold=1e-5, link_hstates=False, shrink=True,
                  propdim_count_nonzero=False):
-        
+
         super(FABPHMM, self).__init__(n_match_states=n_match_states,
                                       n_xins_states=n_xins_states,
                                       n_yins_states=n_yins_states,
@@ -154,7 +154,7 @@ class FABPHMM(PHMM):
               - np.sum(dims_emit / 2 * (np.log(sstats["qsum_emit"]) - 1))
         return fic
 
-    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
         if not self._params_valid:
             self._params_random_init()
             self._params_valid = True
@@ -195,7 +195,7 @@ class FABPHMM(PHMM):
             fic = self._calculate_fic(sstats, n_seq)
 
             if verbose:
-                self._print_states(ll=fic, i_iter=i)
+                self._print_states(ll=fic, i_iter=i, verbose_level=verbose_level)
 
             if fic == np.inf:
                 warnings.warn("fic diverge to infinity", RuntimeWarning)

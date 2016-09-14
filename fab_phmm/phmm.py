@@ -1,7 +1,7 @@
 import numpy as np
 from fab_phmm.utils import EPS, log_, logsumexp
 from fab_phmm import phmmc
-
+import sys
 
 # TODO: check if initial probs are valid
 # TODO: emit prob matrix for insertion states are redundant (array is sufficient)
@@ -220,24 +220,29 @@ class PHMM:
 
         return log_likelihood, np.array(map_hstates[1:])
 
-    def _print_states(self, ll=None, i_iter=None):
-        if i_iter is not None:
-            print("{}th iter".format(i_iter))
-        if ll is not None:
-            print("ll")
-            print(ll)
-        print("n_hstates: {}".format(self._n_hstates))
-        print("n_match_states: {}".format(self._n_match_states))
-        print("n_xins_states: {}".format(self._n_xins_states))
-        print("n_yins_states: {}".format(self._n_yins_states))
+    def _print_states(self, ll=None, i_iter=None, verbose_level=1):
 
-        # print("trans")
-        # print(self._transprob)
-        # print("init")
-        # print(self._initprob)
-        # print("emit")
-        # print(self._emitprob)
+        if verbose_level >= 1:
+            if i_iter is not None:
+                print("{}th iter".format(i_iter))
+            if ll is not None:
+                print("ll")
+                print(ll)
+            print("n_hstates: {}".format(self._n_hstates))
+            print("n_match_states: {}".format(self._n_match_states))
+            print("n_xins_states: {}".format(self._n_xins_states))
+            print("n_yins_states: {}".format(self._n_yins_states))
+
+        if verbose_level >= 2:
+            print("trans")
+            print(self._transprob)
+            print("init")
+            print(self._initprob)
+            print("emit")
+            print(self._emitprob)
+
         print()
+        sys.stdout.flush()
 
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
 
