@@ -1,7 +1,7 @@
 from fab_phmm.fab_phmm import FABPHMM
 import inspect
 from experiments.utils import small_model, sample_from_model
-import numpy as np
+import sys
 
 
 def main():
@@ -31,10 +31,10 @@ def main():
                                  n_xins_states=n_xins,
                                  n_yins_states=n_yins,
                                  shrink_threshold=1e-2,
-                                 stop_threshold=1e-6,
+                                 stop_threshold=1e-4,
                                  shrink=False)
 
-                fic = fmodel.fit(xseqs, yseqs, max_iter=2000, verbose=False)
+                fic = fmodel.fit(xseqs, yseqs, max_iter=500, verbose=True, verbose_level=1)
 
                 result = {}
                 result["n_xins"] = n_xins
@@ -50,6 +50,7 @@ def main():
                 print(result)
 
                 print()
+                sys.stdout.flush()
 
     results.sort(key=lambda r: - r["fic"])
 

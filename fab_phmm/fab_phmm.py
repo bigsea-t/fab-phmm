@@ -199,7 +199,7 @@ class FABPHMM(PHMM):
 
             if fic == np.inf:
                 warnings.warn("fic diverge to infinity", RuntimeWarning)
-                return fic
+                return - np.inf
 
             if (fic - self._last_score) / n_seq < self._stop_threshold:
                 if fic - self._last_score < 0:
