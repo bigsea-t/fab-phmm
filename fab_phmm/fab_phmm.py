@@ -9,7 +9,7 @@ class FABPHMM(PHMM):
                  n_simbols=4, initprob=None, transprob=None, emitprob=None,
                  symmetric_emission=False, shrink_threshold=1e-2,
                  stop_threshold=1e-5, link_hstates=False, shrink=True,
-                 propdim_count_nonzero=False):
+                 propdim_count_nonzero=True):
 
         super(FABPHMM, self).__init__(n_match_states=n_match_states,
                                       n_xins_states=n_xins_states,
