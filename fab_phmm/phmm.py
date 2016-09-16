@@ -5,6 +5,8 @@ import sys
 
 # TODO: check if initial probs are valid
 # TODO: emit prob matrix for insertion states are redundant (array is sufficient)
+# TODO: print to file
+
 
 class PHMM:
 
@@ -112,12 +114,19 @@ class PHMM:
 
         return log_emitprob_frame
 
-    def score(self, xseq, yseq):
-        log_emitprob_frame = self._gen_log_emitprob_frame(xseq, yseq)
+    def score(self, xseqs, yseqs):
+        ll_all = 0
+        log_transprob = log_(self._transprob)
+        log_initprob = log_(self._initprob)
+        assert(len(xseqs) == len(yseqs))
+        for j in range(len(xseqs)):
+            log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
 
-        ll, _ = self._forward(log_emitprob_frame, log_(self._transprob), log_(self._initprob))
+            ll, _ = self._forward(log_emitprob_frame, log_transprob, log_initprob)
 
-        return ll
+            ll_all += ll
+
+        return ll_all
 
     def _gen_sample_given_hstate(self, hstate):
         if self._hstate_properties[hstate] == 0:
@@ -244,7 +253,7 @@ class PHMM:
         print()
         sys.stdout.flush()
 
-    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False):
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
 
         if not self._params_valid:
             self._params_random_init()
@@ -272,19 +281,18 @@ class PHMM:
                 self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseqs[j], yseqs[j])
 
             if verbose:
-                self._print_states(ll=ll, i_iter=i)
+                self._print_states(ll=sstats["score"], i_iter=i, verbose_level=verbose_level)
 
-            if (sstats["score"] - self._last_score) / len(xseqs) < self._stop_threshold:
-                if sstats["score"] - self._last_score < 0:
-                    raise RuntimeError("log-likelihood decreased")
-                else:
-                    return self
+            if np.abs(sstats["score"] - self._last_score) / len(xseqs) < self._stop_threshold:
+                return self._last_score
+            elif sstats["score"] - self._last_score < 0:
+                raise RuntimeError("log-likelihood decreased")
 
             self._update_params(sstats)
 
         self._params_valid = True
 
-        return self
+        return self._last_score
 
     def _init_sufficient_statistics(self):
         sstats = {}

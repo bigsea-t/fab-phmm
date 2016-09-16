@@ -1,6 +1,7 @@
 from fab_phmm.phmm import PHMM
 from fab_phmm.utils import *
 import warnings
+import sys
 
 
 class FABPHMM(PHMM):
@@ -122,6 +123,15 @@ class FABPHMM(PHMM):
         sstats["norm_sum"] = 0
         return sstats
 
+    def score(self, xseqs, yseqs, type="fic"):
+        if type == "fic":
+            raise NotImplemented("type fic is not implemented")
+        elif type == "ll":
+            return super(FABPHMM, self).score(xseqs, yseqs)
+        else:
+            raise ValueError("invalid type")
+
+
     def _accumulate_sufficient_statistics(self, sstats, free_energy, gamma, xi, xseq, yseq, norm):
         # free energy is accumulated as sstats["score"]
         super(FABPHMM, self)._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseq, yseq)
@@ -188,7 +198,7 @@ class FABPHMM(PHMM):
                 bwd_lattice = self._backward(fab_log_emitprob_frame, log_transprob)
 
                 gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, free_energy,
-                                                             log_emitprob_frame, log_transprob)
+                                                             fab_log_emitprob_frame, log_transprob)
 
                 self._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseqs[j], yseqs[j], norm)
 
@@ -201,12 +211,12 @@ class FABPHMM(PHMM):
                 warnings.warn("fic diverge to infinity", RuntimeWarning)
                 return - np.inf
 
-            if (fic - self._last_score) / n_seq < self._stop_threshold:
-                if fic - self._last_score < 0:
-                    warnings.warn("fic decreased", RuntimeWarning)
-                else:
-                    print("end iteration with fic: {}".format(fic))
-                    return fic
+            if np.abs(fic - self._last_score) / n_seq < self._stop_threshold:
+                print("end iteration with fic: {}".format(fic))
+                return fic
+            elif fic - self._last_score < 0:
+                print("diff", (fic - self._last_score), file=sys.stderr)
+                raise RuntimeError("fic decreased")
 
             self._update_params(sstats, fic)
 
@@ -218,4 +228,4 @@ class FABPHMM(PHMM):
 
         warnings.warn("end fitting though not yet converged", RuntimeWarning)
 
-        return fic
+        return self._last_score
