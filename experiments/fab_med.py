@@ -18,7 +18,7 @@ def main():
                      shrink_threshold=1e-2,
                      stop_threshold=1e-2)
 
-    xseqs, yseqs = sample_from_model(smodel, n_samples=200, len_seq=30)
+    xseqs, yseqs = sample_from_model(smodel, n_samples=200, len_seq=60)
     fmodel.fit(xseqs, yseqs, max_iter=10000, verbose=True)
     print("end with n_hstates {}".format(fmodel._n_hstates))
 
