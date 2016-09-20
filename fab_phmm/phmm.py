@@ -39,7 +39,6 @@ class PHMM:
             self._params_valid = True
 
     def _params_random_init(self):
-        print("params random init")
         initprob = np.random.rand(self._n_hstates)
         initprob /= np.sum(initprob)
         self._initprob = initprob
@@ -229,14 +228,13 @@ class PHMM:
 
         return log_likelihood, np.array(map_hstates[1:])
 
-    def _print_states(self, ll=None, i_iter=None, verbose_level=1):
+    def _print_states(self, i_iter=None, verbose_level=1):
 
         if verbose_level >= 1:
             if i_iter is not None:
                 print("{}th iter".format(i_iter))
-            if ll is not None:
-                print("ll")
-                print(ll)
+            print("score")
+            print(self._last_score)
             print("n_hstates: {}".format(self._n_hstates))
             print("n_match_states: {}".format(self._n_match_states))
             print("n_xins_states: {}".format(self._n_xins_states))
@@ -250,7 +248,9 @@ class PHMM:
             print("emit")
             print(self._emitprob)
 
-        print()
+        if verbose_level >= 1:
+            print()
+
         sys.stdout.flush()
 
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
@@ -281,7 +281,7 @@ class PHMM:
                 self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseqs[j], yseqs[j])
 
             if verbose:
-                self._print_states(ll=sstats["score"], i_iter=i, verbose_level=verbose_level)
+                self._print_states(i_iter=i, verbose_level=verbose_level)
 
             if np.abs(sstats["score"] - self._last_score) / len(xseqs) < self._stop_threshold:
                 return self._last_score
