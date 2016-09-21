@@ -3,12 +3,59 @@ from fab_phmm.utils import *
 import warnings
 import sys
 import copy
+import timeit
+
+
+class Monitor:
+    def __init__(self, threshold=1e-5):
+        self.records = []
+        self.threshold = threshold
+
+    def write(self, score, n_hstates):
+        record = {}
+        record["time"] = timeit.default_timer()
+        record["score"] = score
+        record["n_hstates"] = n_hstates
+        self.records.append(record)
+
+    def last_shrinked(self):
+        if len(self.records) < 2:
+            return False
+
+        old = self.records[-2]["n_hstates"]
+        new = self.records[-1]["n_hstates"]
+
+        return new != old
+
+    def is_converged(self):
+        if len(self.records) < 2:
+            return False
+
+        old = self.records[-2]["score"]
+        new = self.records[-1]["score"]
+
+        if np.isinf(new):
+            warnings.warn("score diverge to infinity", RuntimeWarning)
+            return True
+
+        if np.abs(new - old) < self.threshold:
+            return True
+        elif new - old < 0 and not self.last_shrinked():
+            raise RuntimeError("score decreased")
+        else:
+            return False
 
 
 def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
                         stop_threshold=1e-5, shrink_threshold=1e-2,
                         max_iter=1000, verbose=False,
-                        verbose_level=1, max_n_states=10):
+                        verbose_level=1, max_n_states=10, visited=None):
+    if visited is None:
+        visited = set()
+
+    if (n_match, n_xins, n_yins) in visited:
+        return []
+    visited.add((n_match, n_xins, n_yins))
 
     if n_match > max_n_states or n_xins > max_n_states or n_yins > max_n_states:
         return []
@@ -25,7 +72,7 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
     if verbose:
         model._print_states()
 
-    if model._done_shrink:
+    if model._last_shrinked:
         print("=== shrinked: no more serach====")
         return []
 
@@ -35,7 +82,8 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
     for d in deltas:
         models += _incremental_search(xseqs, yseqs, n_match + d[0], n_xins + d[1], n_yins + d[2],
                                       stop_threshold=stop_threshold, max_iter=max_iter, shrink_threshold=shrink_threshold,
-                                      verbose=verbose, verbose_level=verbose_level, max_n_states=10)
+                                      verbose=verbose, verbose_level=verbose_level, max_n_states=10,
+                                      visited=visited)
 
     return models
 
@@ -46,14 +94,15 @@ def incremental_model_selection(xseqs, yseqs,
                                 max_iter=1000,
                                 verbose=False,
                                 verbose_level=1,
-                                max_n_states=10):
+                                max_n_states=10,
+                                sorted=True):
 
-    #TODO: return reached max_states somehow
     models = _incremental_search(xseqs, yseqs, 1, 1, 1,
                                  stop_threshold=stop_threshold, shrink_threshold=shrink_threshold,
                                  max_iter=max_iter, verbose=verbose, verbose_level=verbose_level, max_n_states=max_n_states)
 
-    models.sort(key=lambda m: - m._last_score)
+    if sorted:
+        models.sort(key=lambda m: - m._last_score)
 
     return models
 
@@ -64,7 +113,8 @@ def decremental_greedy_selection(xseqs, yseqs,
                                  max_iter=1000,
                                  verbose=False,
                                  verbose_level=1,
-                                 max_n_states=10):
+                                 max_n_states=10,
+                                 sorted=True):
     models = []
 
     model = FABPHMM(n_match_states=max_n_states,
@@ -78,7 +128,9 @@ def decremental_greedy_selection(xseqs, yseqs,
         models.append(copy.deepcopy(model))
         if not model.greedy_shrink():
             break
-    models.sort(key=lambda m: - m._last_score)
+
+    if sorted:
+        models.sort(key=lambda m: - m._last_score)
 
     return models
 
@@ -111,6 +163,9 @@ class FABPHMM(PHMM):
         self._qsum_trans = None
 
         self._done_shrink = None
+        self._last_shrinked = False
+
+        self.monitor = None
 
         if symmetric_emission:
             raise NotImplementedError("Symmetric emission is not implemented")
@@ -144,7 +199,6 @@ class FABPHMM(PHMM):
 
 
     def _gen_pseudo_prob(self, log_emitprob_frame, dims_trans, dims_emit):
-        # TODO: two patterns of qsum are needed (for trans and for emit)
         term_trans = - dims_trans / (2 * self._qsum_trans + EPS)
         term_emit = - dims_emit / (2 * self._qsum_emit + EPS)
 
@@ -175,7 +229,7 @@ class FABPHMM(PHMM):
         if np.sum(n_deleted_hstateprops) == 0:
             return 0
 
-        self._done_shrink = True
+        self._last_shrinked = True
 
         if dry:
             return np.sum(n_deleted_hstateprops)
@@ -255,7 +309,24 @@ class FABPHMM(PHMM):
         if self._n_match_states == 1 and self._n_xins_states == 1 and self._n_yins_states == 1:
             return False
 
-        deleted_state = np.argmin(self._qsum_emit)
+        sep_mx = self._n_match_states
+        sep_xy = self._n_match_states + self._n_xins_states
+
+        qsum_emit_match = self._qsum_emit[:sep_mx]
+        qsum_emit_xins = self._qsum_emit[sep_mx:sep_xy]
+        qsum_emit_yins = self._qsum_emit[sep_xy:]
+
+        def min_val_index(qsum, origin):
+            argmin = np.argmin(qsum)
+            min_val = qsum_emit_match[argmin] / np.sum(qsum)
+            min_index = argmin + origin
+            return min_val, min_index
+
+        cands = [min_val_index(qsum_emit_match, 0),
+                 min_val_index(qsum_emit_xins, sep_mx),
+                 min_val_index(qsum_emit_yins, sep_xy)]
+
+        _, deleted_state = min(cands, key=lambda k: k[0])
         preserved_hstates = np.delete(np.arange(self._n_hstates), deleted_state)
 
         deleted_hstateprop = self._hstate_properties[deleted_state]
@@ -286,7 +357,7 @@ class FABPHMM(PHMM):
 
         print("hstate {} is deleted".format(deleted_state))
 
-        self._last_score = - np.inf
+        self._last_shrinked = True
 
         return True
 
@@ -303,12 +374,17 @@ class FABPHMM(PHMM):
         if self._last_score is None:
             self._last_score = - np.inf
 
+        # TODO: class Recorder / integrate some features into this
+        if self.monitor is None:
+            self.monitor = Monitor(threshold=self._shrink_threshold)
+
         for i in range(1, max_iter + 1):
-            # print("{} th iter".format(i))
+            print("{} th iter".format(i))
 
             log_transprob = log_(self._transprob)
             log_initprob = log_(self._initprob)
 
+            self._last_shrinked = False
             sstats = self._init_sufficient_statistics()
 
             dim_init, dims_trans, dims_emit = self._gen_dims()
@@ -330,28 +406,24 @@ class FABPHMM(PHMM):
 
             fic = self._calculate_fic(sstats, n_seq)
 
-            if fic == np.inf:
-                warnings.warn("fic diverge to infinity", RuntimeWarning)
-                return - np.inf
+            self.monitor.write(fic, self._n_hstates)
 
-            if np.abs(fic - self._last_score) / n_seq < self._stop_threshold:
-                print("converged with fic: {}".format(fic))
+            if verbose:
+                self._print_states(i_iter=i, verbose_level=verbose_level)
+
+            if self.monitor.is_converged():
+                print("converged with fic {}".format(fic))
                 return self
-            elif fic - self._last_score < 0:
-                print("diff", (fic - self._last_score), file=sys.stderr)
-                raise RuntimeError("fic decreased")
 
             self._update_params(sstats, fic)
 
             n_shrinked_states = self._shrinkage_operation(dry=(not self._shrink))
 
+            # TODO: this part should be integrated into Monitor
             if n_shrinked_states > 0:
-                self._last_score = - np.inf
                 if not self._shrink:
                     print("shrinked: not an optimal model")
                     return self
-            if verbose:
-                self._print_states(i_iter=i, verbose_level=verbose_level)
 
         warnings.warn("end fitting though not yet converged", RuntimeWarning)
         return self
