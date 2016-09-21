@@ -286,6 +286,8 @@ class FABPHMM(PHMM):
 
         print("hstate {} is deleted".format(deleted_state))
 
+        self._last_score = - np.inf
+
         return True
 
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
