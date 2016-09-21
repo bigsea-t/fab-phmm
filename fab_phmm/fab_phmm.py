@@ -318,7 +318,7 @@ class FABPHMM(PHMM):
 
         def min_val_index(qsum, origin):
             argmin = np.argmin(qsum)
-            min_val = qsum_emit_match[argmin] / np.sum(qsum)
+            min_val = qsum[argmin] / np.sum(qsum)
             min_index = argmin + origin
             return min_val, min_index
 
