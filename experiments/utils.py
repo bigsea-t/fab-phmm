@@ -1,6 +1,10 @@
 from fab_phmm.phmm import PHMM
 import numpy as np
 from fab_phmm.utils import omit_gap
+import os
+import sys
+import datetime
+import argparse
 
 
 def _small_model():
@@ -216,6 +220,7 @@ def med2_model():
                    emitprob=emitprob,
                    n_simbols=n_simbols)
 
+
 def med3_model():
     n_match_states = 2
     n_ins_states = 1
@@ -253,6 +258,7 @@ def med3_model():
                    emitprob=emitprob,
                    n_simbols=n_simbols)
 
+
 def sample_from_model(model, n_samples=1000, len_seq=30):
     xseqs = []
     yseqs = []
@@ -265,3 +271,34 @@ def sample_from_model(model, n_samples=1000, len_seq=30):
         assert (yseqs[-1].shape[0] > 0)
 
     return xseqs, yseqs
+
+
+def prepare_logd(path_logd):
+    path_logd = datetime.datetime.now().isoformat() + "_" + path_logd
+
+    if path_logd[-1] != "/":
+        path_logd += "/"
+
+    if os.path.exists(path_logd):
+        raise ValueError("directory already exist")
+
+    os.mkdir(path_logd)
+
+    sys.stdout = open(path_logd + 'stdout.txt', 'w')
+    sys.stderr = open(path_logd + 'stderr.txt', 'w')
+
+    return path_logd
+
+
+def get_dir():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--directory", type=str,
+                        help="name of output directory")
+    args = parser.parse_args()
+
+    dirname = args.directory
+
+    if dirname is None:
+        dirname = ""
+
+    return dirname
