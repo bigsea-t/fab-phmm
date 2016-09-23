@@ -294,15 +294,30 @@ def prepare_logd(path_logd):
     return path_logd
 
 
-def get_dir():
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--directory", type=str,
                         help="name of output directory")
+
+    parser.add_argument("-s", "--size", type=str,
+                        help="small/med")
+
     args = parser.parse_args()
 
-    dirname = args.directory
+    if args.size not in ["small", "med"]:
+        if args.size is None:
+            args.size = "med"
+        else:
+            ValueError("size should be small or med")
 
-    if dirname is None:
-        dirname = ""
+    if args.directory is None:
+        args.directory = ""
 
-    return dirname
+    return args
+
+
+def get_model_by_size(size="med"):
+    if size == "small":
+        return small_model()
+    elif size == "med":
+        return med_model()

@@ -1,9 +1,9 @@
 from fab_phmm.fab_phmm import decremental_greedy_selection
 import inspect
-from experiments.utils import med_model, sample_from_model, prepare_logd, get_dir
+from experiments.utils import get_model_by_size, sample_from_model, prepare_logd, get_args
 import pickle
 
-def main(path_logd=""):
+def main(path_logd="", size="med"):
     """
     incremental model selection
     model size: med
@@ -15,7 +15,7 @@ def main(path_logd=""):
     print(__name__)
     print(inspect.getsource(main))
 
-    smodel = med_model()
+    smodel = get_model_by_size(size)
     xseqs, yseqs = sample_from_model(smodel, n_samples=200, len_seq=50)
 
     models = decremental_greedy_selection(xseqs, yseqs, stop_threshold=1e-4, shrink_threshold=1e-2,
@@ -33,4 +33,5 @@ def main(path_logd=""):
     models[0]._print_states(verbose_level=2)
 
 if __name__ == '__main__':
-    main(get_dir())
+    args = get_args()
+    main(path_logd=args.directory, size=args.size)
