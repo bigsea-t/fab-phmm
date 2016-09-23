@@ -9,11 +9,12 @@ def main(path_logd):
     incremental model selection
     model size: med
     """
+    if path_logd != "":
+        path_logd = prepare_logd(path_logd)
+
     print(__name__)
     print(inspect.getsource(main))
 
-    if path_logd != "":
-        path_logd = prepare_logd(path_logd)
 
     smodel = med_model()
     xseqs, yseqs = sample_from_model(smodel, n_samples=200, len_seq=50)

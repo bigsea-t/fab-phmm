@@ -259,16 +259,20 @@ def med3_model():
                    n_simbols=n_simbols)
 
 
-def sample_from_model(model, n_samples=1000, len_seq=30):
+def sample_from_model(model, n_samples=1000, len_seq=30, max_iter=1000):
     xseqs = []
     yseqs = []
 
-    for _ in range(n_samples):
-        xseq, yseq, hseq = model.sample(len_seq)
-        xseqs.append(omit_gap(xseq))
-        yseqs.append(omit_gap(yseq))
-        assert (xseqs[-1].shape[0] > 0)
-        assert (yseqs[-1].shape[0] > 0)
+    for _ in range(max_iter):
+        break_flg = True
+        for _ in range(n_samples):
+            xseq, yseq, hseq = model.sample(len_seq)
+            xseqs.append(omit_gap(xseq))
+            yseqs.append(omit_gap(yseq))
+            if (xseqs[-1].shape[0] == 0) or (yseqs[-1].shape[0] == 0):
+                break_flg = False
+        if break_flg:
+            break
 
     return xseqs, yseqs
 
