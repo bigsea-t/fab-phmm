@@ -1,7 +1,6 @@
 from fab_phmm.phmm import PHMM
 from fab_phmm.utils import *
 import warnings
-import sys
 import copy
 import timeit
 
@@ -82,7 +81,7 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
     for d in deltas:
         models += _incremental_search(xseqs, yseqs, n_match + d[0], n_xins + d[1], n_yins + d[2],
                                       stop_threshold=stop_threshold, max_iter=max_iter, shrink_threshold=shrink_threshold,
-                                      verbose=verbose, verbose_level=verbose_level, max_n_states=10,
+                                      verbose=verbose, verbose_level=verbose_level, max_n_states=max_n_states,
                                       visited=visited)
 
     return models
@@ -99,7 +98,8 @@ def incremental_model_selection(xseqs, yseqs,
 
     models = _incremental_search(xseqs, yseqs, 1, 1, 1,
                                  stop_threshold=stop_threshold, shrink_threshold=shrink_threshold,
-                                 max_iter=max_iter, verbose=verbose, verbose_level=verbose_level, max_n_states=max_n_states)
+                                 max_iter=max_iter, verbose=verbose, verbose_level=verbose_level,
+                                 max_n_states=max_n_states)
 
     if sorted:
         models.sort(key=lambda m: - m._last_score)
@@ -322,9 +322,13 @@ class FABPHMM(PHMM):
             min_index = argmin + origin
             return min_val, min_index
 
-        cands = [min_val_index(qsum_emit_match, 0),
-                 min_val_index(qsum_emit_xins, sep_mx),
-                 min_val_index(qsum_emit_yins, sep_xy)]
+        cands = []
+        if self._n_match_states > 1:
+            cands.append(min_val_index(qsum_emit_match, 0))
+        if self._n_xins_states > 1:
+            cands.append(min_val_index(qsum_emit_xins, sep_mx))
+        if self._n_yins_states > 1:
+            cands.append(min_val_index(qsum_emit_yins, sep_xy))
 
         _, deleted_state = min(cands, key=lambda k: k[0])
         preserved_hstates = np.delete(np.arange(self._n_hstates), deleted_state)
