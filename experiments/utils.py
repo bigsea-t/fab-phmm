@@ -277,19 +277,19 @@ def sample_from_model(model, n_samples=1000, len_seq=30, max_iter=1000):
     return xseqs, yseqs
 
 
-def prepare_logd(path_logd):
-    path_logd = datetime.datetime.now().isoformat() + "_" + path_logd
+def prepare_logd(path_logd, redirect_std=True, timestamp=True):
 
-    if path_logd[-1] != "/":
-        path_logd += "/"
+    if timestamp:
+        path_logd = path_logd + "_" +datetime.datetime.now().isoformat()
 
     if os.path.exists(path_logd):
         raise ValueError("directory already exist")
 
-    os.mkdir(path_logd)
+    os.makedirs(path_logd)
 
-    sys.stdout = open(path_logd + 'stdout.txt', 'w')
-    sys.stderr = open(path_logd + 'stderr.txt', 'w')
+    if redirect_std:
+        sys.stdout = open(os.path.join(path_logd, 'stdout.txt'), 'w')
+        sys.stderr = open(os.path.join(path_logd, 'stderr.txt'), 'w')
 
     return path_logd
 

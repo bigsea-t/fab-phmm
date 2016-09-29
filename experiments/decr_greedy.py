@@ -3,6 +3,7 @@ import inspect
 from experiments.utils import get_model_by_size, sample_from_model, prepare_logd, get_args
 import pickle
 
+
 def main(path_logd="", size="med"):
     """
     incremental model selection
