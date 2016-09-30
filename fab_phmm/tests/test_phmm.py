@@ -177,17 +177,12 @@ class TestPHMM(unittest.TestCase):
         model = self.model
         n_iter = 5
 
-        def score_seqs():
-            ll = 0
-            for xseq, yseq in zip(xseqs, yseqs):
-                ll += model.score(xseq, yseq)
-            return ll
+        last_ll = - np.inf
 
-        last_ll = score_seqs()
         for i in range(n_iter):
             self.model.fit(xseqs, yseqs, max_iter=1)
 
-            ll = score_seqs()
+            ll = self.model.score(xseqs, yseqs)
 
             self.assertGreater(ll, last_ll)
 
