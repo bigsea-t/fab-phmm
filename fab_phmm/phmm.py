@@ -96,20 +96,11 @@ class PHMM:
         log_emitprob = log_(self._emitprob)
         log_emitprob_frame = np.zeros(shape)
 
-        for i in range(len_x):
-            for j in range(len_y):
-                for k in range(self._n_hstates):
-                    log_emitprob_frame[i + 1, j + 1, k] = log_emitprob[k, xseq[i], yseq[j]]
+        hstate_props = np.array(self._hstate_properties, dtype=np.int64)
 
-        for i in range(len_x):
-            for k in range(self._n_hstates):
-                if self._hstate_properties[k] == 1:
-                    log_emitprob_frame[i + 1, 0, k] = log_emitprob[k, xseq[i], 0]
-
-        for j in range(len_y):
-            for k in range(self._n_hstates):
-                if self._hstate_properties[k] == 2:
-                    log_emitprob_frame[0, j + 1, k] = log_emitprob[k, 0, yseq[j]]
+        phmmc._compute_log_emitprob_frame(log_emitprob_frame, log_emitprob,
+                                          xseq, yseq, hstate_props,
+                                          len_x, len_y, self._n_hstates)
 
         return log_emitprob_frame
 
@@ -308,6 +299,7 @@ class PHMM:
 
         sstats["score"] += ll
 
+        delta_list = [(0, 0), (0, 1), (1, 0)]
         for k in range(self._n_hstates):
             di, dj = self._delta_index(k)
             sstats["init"][k] += gamma[di, dj, k]
@@ -315,19 +307,16 @@ class PHMM:
             sstats["trans"][:, k] += np.sum(xi[:shape_x - di, :shape_y - dj, :, k], axis=(0, 1))
 
             if self._hstate_properties[k] == 0:
-                for t, x in enumerate(xseq):
-                    for u, y in enumerate(yseq):
-                        sstats["emit"][k, x, y] += gamma[t + 1, u + 1, k]
+                phmmc._accumulate_emitprob_match(sstats["emit"], gamma,
+                                                 xseq, yseq, xseq.shape[0], yseq.shape[0], k)
 
             if self._hstate_properties[k] == 1:
-                for t, x in enumerate(xseq):
-                    for u in range(yseq.shape[0] + 1):
-                        sstats["emit"][k, x, :] += gamma[t + 1, u, k]
+                phmmc._accumulate_emitprob_xins(sstats["emit"], gamma,
+                                                xseq, yseq, xseq.shape[0], yseq.shape[0], k)
 
             if self._hstate_properties[k] == 2:
-                for t in range(xseq.shape[0] + 1):
-                    for u, y in enumerate(yseq):
-                        sstats["emit"][k, :, y] += gamma[t, u + 1, k]
+                phmmc._accumulate_emitprob_yins(sstats["emit"], gamma,
+                                                xseq, yseq, xseq.shape[0], yseq.shape[0], k)
 
     def _update_params(self, sstats):
         self._last_score = sstats["score"]

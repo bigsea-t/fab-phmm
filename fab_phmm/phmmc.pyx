@@ -4,6 +4,7 @@ import numpy as np
 from numpy.math cimport isinf, INFINITY, expl, logl
 
 ctypedef double dtype_t
+ctypedef long int_t
 
 cdef inline int _argmax(dtype_t[:] arr) nogil:
     cdef dtype_t max_x = - INFINITY
@@ -33,8 +34,6 @@ cdef inline dtype_t _logsumexp(dtype_t[:] arr) nogil:
 
     return logl(acc) + max_x
 
-cdef int[:] dx = np.array([1, 1, 0], dtype=np.int32)
-cdef int[:] dy = np.array([1, 0 ,1], dtype=np.int32)
 
 def _forward(int shape_x,
              int shape_y,
@@ -46,6 +45,9 @@ def _forward(int shape_x,
              dtype_t[:, :, :] fwd_lattice):
 
     cdef int t, u, r, s, j, k, p
+
+    cdef int[:] dx = np.array([1, 1 ,0], dtype=np.int32)
+    cdef int[:] dy = np.array([1, 0 ,1], dtype=np.int32)
 
     cdef dtype_t[:] wbuf = np.zeros(n_hstates)
 
@@ -81,6 +83,9 @@ def _backward(int shape_x,
 
     cdef int t, u, r, s, k, l, p
 
+    cdef int[:] dx = np.array([1, 1 ,0], dtype=np.int32)
+    cdef int[:] dy = np.array([1, 0 ,1], dtype=np.int32)
+
     cdef dtype_t[:] wbuf = np.zeros(n_hstates)
 
     with nogil:
@@ -107,3 +112,56 @@ def _backward(int shape_x,
                                 + log_emitprob_frame[r, s, l]
 
                         bwd_lattice[t, u, k] = _logsumexp(wbuf)
+
+
+def _accumulate_emitprob_match(dtype_t[:, :, :] sstats_emit,
+                         dtype_t[:, :, :] gamma,
+                         int_t[:] xseq, int_t[:] yseq,
+                         int len_xseq, int len_yseq, int k):
+    cdef int t, u;
+    for t in range(len_xseq):
+        for u in range(len_yseq):
+            sstats_emit[k, xseq[t], yseq[u]] = gamma[t+1, u+1, k] + sstats_emit[k, xseq[t], yseq[u]]
+
+
+def _accumulate_emitprob_xins(dtype_t[:, :, :] sstats_emit,
+                         dtype_t[:, :, :] gamma,
+                         int_t[:] xseq, int_t[:] yseq,
+                         int len_xseq, int len_yseq, int k):
+    cdef int t, u;
+    for t in range(len_xseq):
+        for u in range(len_yseq+1):
+            sstats_emit[k, xseq[t], :] = gamma[t+1, u, k] + sstats_emit[k, xseq[t], 0]
+
+
+def _accumulate_emitprob_yins(dtype_t[:, :, :] sstats_emit,
+                         dtype_t[:, :, :] gamma,
+                         int_t[:] xseq, int_t[:] yseq,
+                         int_t len_xseq, int_t len_yseq, int_t k):
+    cdef int t, u;
+    for t in range(len_xseq+1):
+        for u in range(len_yseq):
+            sstats_emit[k, :, yseq[u]] = gamma[t, u+1, k] + sstats_emit[k, 0, yseq[u]]
+
+
+def _compute_log_emitprob_frame(dtype_t[:, :, :] log_emitprob_frame,
+                                dtype_t[:, :, :] log_emitprob,
+                                int_t[:] xseq, int_t[:] yseq,
+                                int_t[:] hstate_props,
+                                int_t len_x, int_t len_y, int_t n_hstates):
+    cdef int_t i, j, k;
+
+    for i in range(len_x):
+        for j in range(len_y):
+            for k in range(n_hstates):
+                log_emitprob_frame[i + 1, j + 1, k] = log_emitprob[k, xseq[i], yseq[j]]
+
+    for k in range(n_hstates):
+        if hstate_props[k] == 1:
+            for i in range(len_x):
+                log_emitprob_frame[i + 1, 0, k] = log_emitprob[k, xseq[i], 0]
+
+    for k in range(n_hstates):
+        if hstate_props[k] == 2:
+            for j in range(len_y):
+                log_emitprob_frame[0, j + 1, k] = log_emitprob[k, 0, yseq[j]]

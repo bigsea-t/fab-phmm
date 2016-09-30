@@ -135,7 +135,6 @@ def decremental_greedy_selection(xseqs, yseqs,
     return models
 
 
-
 class FABPHMM(PHMM):
 
     def __init__(self, n_match_states=1, n_xins_states=2, n_yins_states=2,

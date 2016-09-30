@@ -28,7 +28,7 @@ def format_bench_result(benchs, n_iter):
         benchmark of EM iteration\n\n"""
     s += "n_iter: {}\n".format(n_iter)
     for name, sec in benchs.items():
-        s += "{:<20}: {:20} [sec]\n".format(name, sec)
+        s += "{:<20}: {:<20} [sec]\n".format(name, sec)
 
     return s
 
