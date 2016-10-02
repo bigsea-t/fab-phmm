@@ -3,6 +3,7 @@ from fab_phmm.utils import *
 import warnings
 import copy
 import timeit
+from concurrent.futures import ThreadPoolExecutor
 import threading
 
 
@@ -381,7 +382,7 @@ class FABPHMM(PHMM):
         with lock:
             self._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseq, yseq, norm)
 
-    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1, n_threads=4):
         if not self._params_valid:
             self._params_random_init()
             self._params_valid = True
@@ -410,18 +411,13 @@ class FABPHMM(PHMM):
             dim_init, dims_trans, dims_emit = self._gen_dims()
 
             lock = threading.Lock()
-            threads = []
-            for j in range(n_seq):
-                thread = threading.Thread(target=self._compute_sstats,
-                                          args=(sstats, xseqs[j], yseqs[j],
-                                                dims_trans, dims_emit,
-                                                log_transprob, log_initprob, lock),
-                                          name="thread-{}th-sample".format(j + 1))
-                thread.start()
-                threads.append(thread)
 
-            for thread in threads:
-                thread.join()
+            with ThreadPoolExecutor(max_workers=n_threads) as e:
+                for j in range(n_seq):
+                    e.submit(self._compute_sstats,
+                             sstats, xseqs[j], yseqs[j],
+                             dims_trans, dims_emit,
+                             log_transprob, log_initprob, lock)
 
             fic = self._calculate_fic(sstats, n_seq)
 

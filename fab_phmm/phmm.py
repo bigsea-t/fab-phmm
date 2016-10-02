@@ -2,6 +2,7 @@ import numpy as np
 from fab_phmm.utils import EPS, log_, logsumexp
 from fab_phmm import phmmc
 import sys
+from concurrent.futures import ThreadPoolExecutor
 import threading
 
 # TODO: check if initial probs are valid
@@ -258,7 +259,7 @@ class PHMM:
             self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseq, yseq)
 
 
-    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
+    def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1, n_threads=4):
 
         if not self._params_valid:
             self._params_random_init()
@@ -275,18 +276,12 @@ class PHMM:
             sstats = self._init_sufficient_statistics()
 
             lock = threading.Lock()
-            threads = []
-            for j in range(len(xseqs)):
-                thread = threading.Thread(target=self._compute_sstats,
-                                          args=(sstats, xseqs[j], yseqs[j],
-                                                log_transprob, log_initprob, lock),
-                                          name="thread-{}th-sample".format(j+1))
-                thread.start()
-                threads.append(thread)
-
-            for thread in threads:
-                thread.join()
-
+            with ThreadPoolExecutor(max_workers=n_threads) as e:
+                for j in range(len(xseqs)):
+                    e.submit(self._compute_sstats,
+                             sstats, xseqs[j], yseqs[j],
+                             log_transprob, log_initprob, lock)
+                
             if verbose:
                 self._print_states(i_iter=i, verbose_level=verbose_level)
 
