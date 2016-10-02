@@ -2,6 +2,7 @@ import numpy as np
 from fab_phmm.utils import EPS, log_, logsumexp
 from fab_phmm import phmmc
 import sys
+import threading
 
 # TODO: check if initial probs are valid
 # TODO: emit prob matrix for insertion states are redundant (array is sufficient)
@@ -244,6 +245,19 @@ class PHMM:
 
         sys.stdout.flush()
 
+    def _compute_sstats(self, sstats, xseq, yseq, log_transprob, log_initprob, lock):
+        log_emitprob_frame = self._gen_log_emitprob_frame(xseq, yseq)
+
+        ll, fwd_lattice = self._forward(log_emitprob_frame, log_transprob, log_initprob)
+        bwd_lattice = self._backward(log_emitprob_frame, log_transprob)
+
+        gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
+                                                     log_emitprob_frame, log_transprob)
+
+        with lock:
+            self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseq, yseq)
+
+
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
 
         if not self._params_valid:
@@ -260,16 +274,18 @@ class PHMM:
         for i in range(1, max_iter + 1):
             sstats = self._init_sufficient_statistics()
 
+            lock = threading.Lock()
+            threads = []
             for j in range(len(xseqs)):
-                log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
+                thread = threading.Thread(target=self._compute_sstats,
+                                          args=(sstats, xseqs[j], yseqs[j],
+                                                log_transprob, log_initprob, lock),
+                                          name="thread-{}th-sample".format(j+1))
+                thread.start()
+                threads.append(thread)
 
-                ll, fwd_lattice = self._forward(log_emitprob_frame, log_transprob, log_initprob)
-                bwd_lattice = self._backward(log_emitprob_frame, log_transprob)
-
-                gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
-                                                             log_emitprob_frame, log_transprob)
-
-                self._accumulate_sufficient_statistics(sstats, ll, gamma, xi, xseqs[j], yseqs[j])
+            for thread in threads:
+                thread.join()
 
             if verbose:
                 self._print_states(i_iter=i, verbose_level=verbose_level)

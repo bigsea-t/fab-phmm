@@ -3,6 +3,7 @@ from fab_phmm.utils import *
 import warnings
 import copy
 import timeit
+import threading
 
 
 class Monitor:
@@ -364,6 +365,22 @@ class FABPHMM(PHMM):
 
         return True
 
+    def _compute_sstats(self, sstats, xseq, yseq, dims_trans, dims_emit, log_transprob, log_initprob, lock):
+        log_emitprob_frame = self._gen_log_emitprob_frame(xseq, yseq)
+
+        norm, pseudo_prob = self._gen_pseudo_prob(log_emitprob_frame, dims_trans, dims_emit)
+        fab_log_emitprob_frame = log_emitprob_frame + log_(pseudo_prob * norm[:, :, np.newaxis])
+
+        free_energy, fwd_lattice = self._forward(fab_log_emitprob_frame, log_transprob, log_initprob)
+
+        bwd_lattice = self._backward(fab_log_emitprob_frame, log_transprob)
+
+        gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, free_energy,
+                                                     fab_log_emitprob_frame, log_transprob)
+
+        with lock:
+            self._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseq, yseq, norm)
+
     def fit(self, xseqs, yseqs, max_iter=1000, verbose=False, verbose_level=1):
         if not self._params_valid:
             self._params_random_init()
@@ -392,20 +409,19 @@ class FABPHMM(PHMM):
 
             dim_init, dims_trans, dims_emit = self._gen_dims()
 
+            lock = threading.Lock()
+            threads = []
             for j in range(n_seq):
-                log_emitprob_frame = self._gen_log_emitprob_frame(xseqs[j], yseqs[j])
+                thread = threading.Thread(target=self._compute_sstats,
+                                          args=(sstats, xseqs[j], yseqs[j],
+                                                dims_trans, dims_emit,
+                                                log_transprob, log_initprob, lock),
+                                          name="thread-{}th-sample".format(j + 1))
+                thread.start()
+                threads.append(thread)
 
-                norm, pseudo_prob = self._gen_pseudo_prob(log_emitprob_frame, dims_trans, dims_emit)
-                fab_log_emitprob_frame = log_emitprob_frame + log_(pseudo_prob * norm[:, :, np.newaxis])
-
-                free_energy, fwd_lattice = self._forward(fab_log_emitprob_frame, log_transprob, log_initprob)
-
-                bwd_lattice = self._backward(fab_log_emitprob_frame, log_transprob)
-
-                gamma, xi = self._compute_smoothed_marginals(fwd_lattice, bwd_lattice, free_energy,
-                                                             fab_log_emitprob_frame, log_transprob)
-
-                self._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseqs[j], yseqs[j], norm)
+            for thread in threads:
+                thread.join()
 
             fic = self._calculate_fic(sstats, n_seq)
 
