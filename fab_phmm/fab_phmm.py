@@ -273,12 +273,12 @@ class FABPHMM(PHMM):
         else:
             raise ValueError("invalid type")
 
-
     def _accumulate_sufficient_statistics(self, sstats, free_energy, gamma, xi, xseq, yseq, norm):
         # free energy is accumulated as sstats["score"]
         super(FABPHMM, self)._accumulate_sufficient_statistics(sstats, free_energy, gamma, xi, xseq, yseq)
-        sstats["qsum_emit"] += np.sum(gamma, axis=(0, 1))
-        sstats["qsum_trans"] += sstats["qsum_emit"] - gamma[-1, -1, :]
+        sum_gamma = np.sum(gamma, axis=(0, 1))
+        sstats["qsum_emit"] += sum_gamma
+        sstats["qsum_trans"] += sum_gamma - gamma[-1, -1, :]
         sstats["norm_sum"] += np.sum(np.log(norm) * np.sum(gamma, axis=2))
 
     def _gen_random_qsum(self, xseqs, yseqs):
