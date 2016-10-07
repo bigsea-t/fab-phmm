@@ -6,11 +6,14 @@ import timeit
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
+warnings.simplefilter("always")
+
 
 class Monitor:
-    def __init__(self, threshold=1e-5):
+    def __init__(self, threshold=1e-5, n_samples=1):
         self.records = []
         self.threshold = threshold
+        self.n_samples=n_samples
 
     def write(self, score, n_hstates):
         record = {}
@@ -35,14 +38,18 @@ class Monitor:
         old = self.records[-2]["score"]
         new = self.records[-1]["score"]
 
+        diff = (new - old) / self.n_samples
+
         if np.isinf(new):
             warnings.warn("score diverge to infinity", RuntimeWarning)
             return True
 
-        if np.abs(new - old) < self.threshold:
+        if np.abs(diff) < self.threshold:
             return True
-        elif new - old < 0 and not self.last_shrinked():
-            raise RuntimeError("score decreased")
+        elif diff < 0 and not self.last_shrinked():
+            warnings.warn("score decreased", RuntimeWarning)
+            return False
+            #raise RuntimeError("score decreased")
         else:
             return False
 
@@ -50,7 +57,7 @@ class Monitor:
 def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
                         stop_threshold=1e-5, shrink_threshold=1e-2,
                         max_iter=1000, verbose=False,
-                        verbose_level=1, max_n_states=10, visited=None):
+                        verbose_level=1, max_match_states=10, max_ins_states=10, visited=None, n_threads=4):
     if visited is None:
         visited = set()
 
@@ -58,7 +65,7 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
         return []
     visited.add((n_match, n_xins, n_yins))
 
-    if n_match > max_n_states or n_xins > max_n_states or n_yins > max_n_states:
+    if n_match > max_match_states or n_xins > max_ins_states or n_yins > max_ins_states:
         return []
 
     model = FABPHMM(n_match_states=n_match,
@@ -68,7 +75,8 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
                     stop_threshold=stop_threshold,
                     shrink=False)
     model.fit(xseqs, yseqs,
-              max_iter=max_iter, verbose=verbose, verbose_level=verbose_level)
+              max_iter=max_iter, verbose=verbose, verbose_level=verbose_level,
+              n_threads=n_threads)
 
     if verbose:
         model._print_states()
@@ -83,8 +91,8 @@ def _incremental_search(xseqs, yseqs, n_match, n_xins, n_yins,
     for d in deltas:
         models += _incremental_search(xseqs, yseqs, n_match + d[0], n_xins + d[1], n_yins + d[2],
                                       stop_threshold=stop_threshold, max_iter=max_iter, shrink_threshold=shrink_threshold,
-                                      verbose=verbose, verbose_level=verbose_level, max_n_states=max_n_states,
-                                      visited=visited)
+                                      verbose=verbose, verbose_level=verbose_level, max_match_states=max_match_states, max_ins_states=max_ins_states,
+                                      visited=visited, n_threads=n_threads)
 
     return models
 
@@ -95,13 +103,15 @@ def incremental_model_selection(xseqs, yseqs,
                                 max_iter=1000,
                                 verbose=False,
                                 verbose_level=1,
-                                max_n_states=10,
-                                sorted=True):
+                                max_match_states=10,
+                                max_ins_states=10,
+                                sorted=True,
+                                n_threads=4):
 
     models = _incremental_search(xseqs, yseqs, 1, 1, 1,
                                  stop_threshold=stop_threshold, shrink_threshold=shrink_threshold,
                                  max_iter=max_iter, verbose=verbose, verbose_level=verbose_level,
-                                 max_n_states=max_n_states)
+                                 max_match_states=max_match_states, max_ins_states=max_ins_states, n_threads=n_threads)
 
     if sorted:
         models.sort(key=lambda m: - m._last_score)
@@ -195,7 +205,6 @@ class FABPHMM(PHMM):
         for k in range(n_hstates):
             hstate_prop = self._hstate_properties[k]
             dim_emit[k] = self._dim_match_emit if hstate_prop == 0 else self._dim_ins_emit
-
         return dim_init, dim_trans, dim_emit
 
 
@@ -397,7 +406,8 @@ class FABPHMM(PHMM):
 
         # TODO: class Recorder / integrate some features into this
         if self.monitor is None:
-            self.monitor = Monitor(threshold=self._shrink_threshold)
+            self.monitor = Monitor(threshold=self._shrink_threshold,
+                                   n_samples=n_seq)
 
         for i in range(1, max_iter + 1):
             print("{} th iter".format(i))
