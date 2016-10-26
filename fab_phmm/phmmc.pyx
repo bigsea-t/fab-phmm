@@ -51,27 +51,28 @@ def _forward(int shape_x,
 
     cdef dtype_t[:] wbuf = np.zeros(n_hstates)
 
-    #with nogil:
+    with nogil:
 
-    for k in range(n_hstates):
-        p = hstate_properties[k]
-        fwd_lattice[dx[p], dy[p], k] = log_emitprob_frame[dx[p], dy[p], k] + log_initprob[k]
+        for k in range(n_hstates):
+            p = hstate_properties[k]
+            fwd_lattice[dx[p], dy[p], k] = log_emitprob_frame[dx[p], dy[p], k] + log_initprob[k]
 
-    for t in range(shape_x):
-        for u in range(shape_y):
+        for t in range(shape_x):
+            for u in range(shape_y):
 
-            for k in range(n_hstates):
-                p = hstate_properties[k]
-                r = t - dx[p]
-                s = u - dy[p]
+                for k in range(n_hstates):
+                    p = hstate_properties[k]
+                    r = t - dx[p]
+                    s = u - dy[p]
 
-                if (r == 0 and s == 0) or r < 0 or s < 0:
-                    continue
+                    if (r == 0 and s == 0) or r < 0 or s < 0:
+                        continue
 
-                for j in range(n_hstates):
-                    wbuf[j] = fwd_lattice[r, s, j] + log_transprob[j, k]
+                    for j in range(n_hstates):
+                        wbuf[j] = fwd_lattice[r, s, j] + log_transprob[j, k]
 
-                fwd_lattice[t, u, k] = log_emitprob_frame[t, u, k] + _logsumexp(wbuf)
+                    fwd_lattice[t, u, k] = log_emitprob_frame[t, u, k] + _logsumexp(wbuf)
+
 
 def _backward(int shape_x,
               int shape_y,
@@ -86,7 +87,8 @@ def _backward(int shape_x,
     cdef int[:] dx = np.array([1, 1 ,0], dtype=np.int32)
     cdef int[:] dy = np.array([1, 0 ,1], dtype=np.int32)
 
-    cdef dtype_t[:] wbuf = np.zeros(n_hstates)
+    # 2-d wbuf to avoid cache miss
+    cdef dtype_t [:, :] wbuf = np.zeros((n_hstates, n_hstates), dtype=np.float64)
 
     with nogil:
 
@@ -97,21 +99,25 @@ def _backward(int shape_x,
             for u in reversed(range(shape_y)):
 
                 if t == shape_x - 1 and u == shape_y - 1:
-                     continue
+                    continue
 
-                for k in range(n_hstates):
-                    for l in range(n_hstates):
+                if t == 0 and u == 0:
+                    continue
+
+                for l in range(n_hstates):
+                    for k in range(n_hstates):
                         p = hstate_properties[l]
                         r = t + dx[p]
                         s = u + dy[p]
 
                         if r >= shape_x or s >= shape_y:
-                            wbuf[l] = - INFINITY
+                            wbuf[k, l] = - INFINITY
                         else:
-                            wbuf[l] = bwd_lattice[r, s, l] + log_transprob[k, l] \
+                            wbuf[k, l] = bwd_lattice[r, s, l] + log_transprob[k, l] \
                                 + log_emitprob_frame[r, s, l]
 
-                        bwd_lattice[t, u, k] = _logsumexp(wbuf)
+                for k in range(n_hstates):
+                    bwd_lattice[t, u, k] = _logsumexp(wbuf[k, :])
 
 
 def _accumulate_emitprob_match(dtype_t[:, :, :] sstats_emit,
