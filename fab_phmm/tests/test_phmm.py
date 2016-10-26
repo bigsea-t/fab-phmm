@@ -154,7 +154,35 @@ class TestPHMM(unittest.TestCase):
         np.testing.assert_array_almost_equal(fwd_frame, ans)
 
     def test_backward(self):
-        pass
+        print("test forward")
+        xseq = np.array([0])
+        yseq = np.array([1])
+
+        log_emitprob_frame = self.model._gen_log_emitprob_frame(xseq, yseq)
+        transprob = self.model._transprob
+        log_transprob = log_(transprob)
+
+        bwd_frame = self.model._backward(log_emitprob_frame, log_transprob)
+
+        match01 = transprob[0,1] * self.insertprob
+        match10 = transprob[0,2] * self.insertprob
+        match_frame = log_(np.array([[0, match01], [match10, 1]]))
+
+        xins01 = transprob[1,1] * self.insertprob
+        xins10 = transprob[1,2] * self.insertprob
+        xins_frame = log_(np.array([[0, xins01], [xins10, 1]]))
+
+        yins01 = transprob[2,1] * self.insertprob
+        yins10 = transprob[2,2] * self.insertprob
+        yins_frame = log_(np.array([[0, yins01], [yins10, 1]]))
+
+        ans = np.zeros_like(bwd_frame)
+
+        ans[:, :, 0] = match_frame
+        ans[:, :, 1] = xins_frame
+        ans[:, :, 2] = yins_frame
+
+        np.testing.assert_array_almost_equal(bwd_frame, ans)
 
     def test_sample_len(self):
         print("test sample len")
