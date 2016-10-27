@@ -154,7 +154,7 @@ class TestPHMM(unittest.TestCase):
         np.testing.assert_array_almost_equal(fwd_frame, ans)
 
     def test_backward(self):
-        print("test forward")
+        print("test backward")
         xseq = np.array([0])
         yseq = np.array([1])
 
@@ -296,6 +296,92 @@ class TestPHMM(unittest.TestCase):
             trans_freqs[hs[i], hs[i+1]] += 1
         trans_freqs /= np.sum(trans_freqs, axis=1)[:, np.newaxis]
         np.testing.assert_almost_equal(trans_freqs, model._transprob, decimal=decimal)
+
+    def test_calculate_smoothed_marginal(self):
+        print("test calculate smoothed marginal")
+
+        xseq = np.array([0,2])
+        yseq = np.array([0,1,2])
+
+        model = self.model
+
+        log_emitprob_frame = model._gen_log_emitprob_frame(xseq, yseq)
+        log_transprob = log_(model._transprob)
+        log_initprob = log_(model._initprob)
+
+        ll, fwd_lattice = model._forward(log_emitprob_frame, log_transprob, log_initprob)
+        bwd_lattice = model._backward(log_emitprob_frame, log_transprob)
+
+        gamma, xi = model._compute_smoothed_marginals(fwd_lattice, bwd_lattice, ll,
+                                                     log_emitprob_frame, log_transprob)
+
+        ans_gamma = np.array([[[ 0.        ,  0.        ,  0.        ],
+                                [ 0.        ,  0.        ,  0.28807947],
+                                [ 0.        ,  0.        ,  0.00551876],
+                                [ 0.        ,  0.        ,  0.        ]],
+
+                               [[ 0.        ,  0.00551876,  0.        ],
+                                [ 0.70640177,  0.        ,  0.        ],
+                                [ 0.28256071,  0.        ,  0.56512141],
+                                [ 0.00551876,  0.        ,  0.        ]],
+
+                               [[ 0.        ,  0.        ,  0.        ],
+                                [ 0.00551876,  0.        ,  0.        ],
+                                [ 0.14128035,  0.        ,  0.00551876],
+                                [ 0.84768212,  0.00551876,  0.14679912]]])
+
+        ans_xi = np.array([[[[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]],
+
+                            [[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.28256071,  0.        ,  0.00551876]],
+
+                            [[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.00551876,  0.        ,  0.        ]],
+
+                            [[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]]],
+
+
+                           [[[ 0.        ,  0.        ,  0.        ],
+                             [ 0.00551876,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]],
+
+                            [[ 0.14128035,  0.        ,  0.56512141],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]],
+
+                            [[ 0.28256071,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.56512141,  0.        ,  0.        ]],
+
+                            [[ 0.        ,  0.00551876,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]]],
+
+
+                           [[[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]],
+
+                            [[ 0.        ,  0.        ,  0.00551876],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]],
+
+                            [[ 0.        ,  0.        ,  0.14128035],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.00551876]],
+
+                            [[ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ],
+                             [ 0.        ,  0.        ,  0.        ]]]])
+
+        np.testing.assert_almost_equal(gamma, ans_gamma)
+        np.testing.assert_almost_equal(xi, ans_xi)
 
 if __name__ == '__main__':
     unittest.main()
