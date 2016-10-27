@@ -172,8 +172,8 @@ class PHMM:
         len_y = y_seq.shape[0]
 
         lattice_shape = (len_x + 1, len_y + 1, self._n_hstates)
-        viterbi_lattice = np.ones(lattice_shape) * (- np.inf)
-        trace_lattice = np.ones(lattice_shape, dtype=np.int32) * (- 1)
+        viterbi_lattice = np.full(lattice_shape, -np.inf)
+        trace_lattice = np.full(lattice_shape, -1, dtype=np.int32)
 
         log_emitprob_frame = self._gen_log_emitprob_frame(x_seq, y_seq)
 
@@ -193,7 +193,7 @@ class PHMM:
                     if viterbi_lattice[i, j, k] != (- np.inf):
                         continue
 
-                    cands = np.ones(self._n_hstates) * (- np.inf)
+                    cands = np.full(self._n_hstates, - np.inf)
                     di, dj = self._delta_index(k)
                     _i , _j = i - di, j - dj
                     if _i >= 0 and _j >= 0:
@@ -365,7 +365,7 @@ class PHMM:
     def _forward(self, log_emitprob_frame, log_transprob, log_initprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        fwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * (- np.inf)
+        fwd_lattice = np.full((shape_x, shape_y, n_hstates), -np.inf)
 
         phmmc._forward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
                        log_emitprob_frame, log_initprob, log_transprob, fwd_lattice)
@@ -377,7 +377,7 @@ class PHMM:
     def _backward(self, log_emitprob_frame, log_transprob):
         shape_x, shape_y, n_hstates = log_emitprob_frame.shape
 
-        bwd_lattice = np.ones((shape_x, shape_y, n_hstates)) * (-np.inf)
+        bwd_lattice = np.full((shape_x, shape_y, n_hstates), - np.inf)
 
         phmmc._backward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
                        log_emitprob_frame, log_transprob, bwd_lattice)
