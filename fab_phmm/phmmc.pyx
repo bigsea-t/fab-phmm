@@ -171,3 +171,37 @@ def _compute_log_emitprob_frame(dtype_t[:, :, :] log_emitprob_frame,
         if hstate_props[k] == 2:
             for j in range(len_y):
                 log_emitprob_frame[0, j + 1, k] = log_emitprob[k, 0, yseq[j]]
+
+
+def _compute_two_sliced_margnial(int shape_x,
+                                 int shape_y,
+                                 int n_hstates,
+                                 int[:] hstate_properties,
+                                 dtype_t ll,
+                                 dtype_t[:, :, :] fwd_lattice,
+                                 dtype_t[:, :, :] bwd_lattice,
+                                 dtype_t[:, :, :] log_emitprob_frame,
+                                 dtype_t[:, :] log_transprob,
+                                 dtype_t[:, :, :, :] log_xi):
+
+    cdef int[:] dx = np.array([1, 1 ,0], dtype=np.int32)
+    cdef int[:] dy = np.array([1, 0 ,1], dtype=np.int32)
+
+    cdef int t, u, j, k, dt, du, p;
+
+    with nogil:
+        for t in range(shape_x):
+            for u in range(shape_y):
+                for k in range(n_hstates):
+                    p = hstate_properties[k]
+                    dt = dx[p]
+                    du = dy[p]
+
+                    if t + dt >= shape_x or u + du >= shape_y:
+                        continue
+
+                    for j in range(n_hstates):
+                        log_xi[t, u, j, k] = fwd_lattice[t, u, j] + \
+                                 log_emitprob_frame[t + dt, u + du, k] + \
+                                 log_transprob[j, k] + \
+                                 bwd_lattice[t + dt, u + du, k] - ll

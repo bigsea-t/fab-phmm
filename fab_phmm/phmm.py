@@ -350,19 +350,14 @@ class PHMM:
         # smoothed marginal
         shape_x, shape_y, n_hstates = fwd_lattice.shape
         log_gamma = fwd_lattice + bwd_lattice - ll
+        gamma = np.exp(log_gamma)
 
         # two-sliced smoothed margninal
-        log_xi = np.ones((shape_x, shape_y, n_hstates, n_hstates)) * (-np.inf)
-        for k in range(self._n_hstates):
-            di, dj = self._delta_index(k)
-
-            a = fwd_lattice[:shape_x - di, :shape_y - dj, :] + \
-                log_emitprob_frame[di:, dj:, np.newaxis, k] + \
-                log_transprob[np.newaxis, np.newaxis, :, k] + \
-                bwd_lattice[di:, dj:, np.newaxis, k] - ll
-
-            log_xi[:shape_x - di, :shape_y - dj, :, k] = a
-        gamma = np.exp(log_gamma)
+        log_xi = np.full((shape_x, shape_y, n_hstates, n_hstates), -np.inf)
+        phmmc._compute_two_sliced_margnial(shape_x, shape_y, n_hstates,
+                                           np.array(self._hstate_properties, dtype=np.int32),
+                                           ll, fwd_lattice, bwd_lattice, log_emitprob_frame,
+                                           log_transprob, log_xi)
         xi = np.exp(log_xi)
 
         return gamma, xi
