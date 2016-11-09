@@ -405,14 +405,11 @@ class FABPHMM(PHMM):
         if self._last_score is None:
             self._last_score = - np.inf
 
-        # TODO: class Recorder / integrate some features into this
         if self.monitor is None:
-            self.monitor = Monitor(threshold=self._shrink_threshold,
-                                   n_samples=n_seq)
+            self.monitor = Monitor(threshold=self._shrink_threshold)
 
         for i in range(1, max_iter + 1):
             print("{} th iter".format(i))
-
             log_transprob = log_(self._transprob)
             log_initprob = log_(self._initprob)
 
@@ -423,16 +420,22 @@ class FABPHMM(PHMM):
 
             lock = threading.Lock()
 
-            with ThreadPoolExecutor(max_workers=n_threads) as e:
+            if n_threads == 0:
                 for j in range(n_seq):
-                    e.submit(self._compute_sstats,
-                             sstats, xseqs[j], yseqs[j],
-                             dims_trans, dims_emit,
-                             log_transprob, log_initprob, lock)
+                    self._compute_sstats(sstats, xseqs[j], yseqs[j],
+                        dims_trans, dims_emit,
+                        log_transprob, log_initprob, lock)
+            else:
+                with ThreadPoolExecutor(max_workers=n_threads) as e:
+                    for j in range(n_seq):
+                        e.submit(self._compute_sstats,
+                                 sstats, xseqs[j], yseqs[j],
+                                 dims_trans, dims_emit,
+                                 log_transprob, log_initprob, lock)
 
             fic = self._calculate_fic(sstats, n_seq)
 
-            self.monitor.write(fic, self._n_hstates)
+            self.monitor.write(fic, self._n_hstates, sstats)
 
             if verbose:
                 self._print_states(i_iter=i, verbose_level=verbose_level)
