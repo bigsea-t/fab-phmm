@@ -124,18 +124,20 @@ def decremental_greedy_selection(xseqs, yseqs,
                                  max_iter=1000,
                                  verbose=False,
                                  verbose_level=1,
-                                 max_n_states=10,
-                                 sorted=True):
+                                 max_match_states=10,
+                                 max_ins_states=5,
+                                 sorted=True,
+                                 n_threads=2):
     models = []
 
-    model = FABPHMM(n_match_states=max_n_states,
-                    n_xins_states=max_n_states,
-                    n_yins_states=max_n_states,
+    model = FABPHMM(n_match_states=max_match_states,
+                    n_xins_states=max_ins_states,
+                    n_yins_states=max_ins_states,
                     shrink_threshold=shrink_threshold,
                     stop_threshold=stop_threshold,
                     shrink=True)
     while True:
-        model.fit(xseqs, yseqs, max_iter=max_iter, verbose=verbose, verbose_level=verbose_level)
+        model.fit(xseqs, yseqs, max_iter=max_iter, verbose=verbose, verbose_level=verbose_level, n_threads=n_threads)
         models.append(copy.deepcopy(model))
         if not model.greedy_shrink():
             break
