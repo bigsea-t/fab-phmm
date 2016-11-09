@@ -10,16 +10,16 @@ warnings.simplefilter("always")
 
 
 class Monitor:
-    def __init__(self, threshold=1e-5, n_samples=1):
+    def __init__(self, threshold=1e-5):
         self.records = []
         self.threshold = threshold
-        self.n_samples=n_samples
 
-    def write(self, score, n_hstates):
+    def write(self, score, n_hstates, sstats):
         record = {}
         record["time"] = timeit.default_timer()
         record["score"] = score
         record["n_hstates"] = n_hstates
+        record["sstats"] = sstats
         self.records.append(record)
 
     def last_shrinked(self):
@@ -38,7 +38,7 @@ class Monitor:
         old = self.records[-2]["score"]
         new = self.records[-1]["score"]
 
-        diff = (new - old) / self.n_samples
+        diff = (new - old)
 
         if np.isinf(new):
             warnings.warn("score diverge to infinity", RuntimeWarning)
@@ -49,7 +49,6 @@ class Monitor:
         elif diff < 0 and not self.last_shrinked():
             warnings.warn("score decreased", RuntimeWarning)
             return False
-            #raise RuntimeError("score decreased")
         else:
             return False
 
