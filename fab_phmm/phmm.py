@@ -4,6 +4,9 @@ from fab_phmm import phmmc
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import warnings
+
+warnings.simplefilter("always")
 
 # TODO: check if initial probs are valid
 # TODO: emit prob matrix for insertion states are redundant (array is sufficient)
@@ -14,7 +17,7 @@ class PHMM:
 
     def __init__(self, n_match_states = 1, n_xins_states=2, n_yins_states=2, n_simbols=4,
                  initprob=None, transprob=None, emitprob=None, stop_threshold=1e-2,
-                 link_hstates=False):
+                 link_hstates=False, link_match=True):
         self._initprob = initprob # [n_hstates]
         self._transprob = transprob # [n_hstates, n_hstates]
         self._emitprob = emitprob # [n_hstates, xdim, ydim] (usually xdim == ydim)
@@ -32,6 +35,7 @@ class PHMM:
         self._stop_threshold = stop_threshold
 
         self._link_hstates = link_hstates
+        self._link_match = link_match
 
         self._last_score = None
 
@@ -50,6 +54,12 @@ class PHMM:
         if not self._link_hstates:
             for j in range(self._n_match_states, self._n_hstates):
                 for k in range(j+1, self._n_hstates):
+                    transprob[j, k] = 0
+                    transprob[k, j] = 0
+
+        if not self._link_match:
+            for j in range(self._n_match_states):
+                for k in range(j+1, self._n_match_states):
                     transprob[j, k] = 0
                     transprob[k, j] = 0
 
@@ -74,6 +84,18 @@ class PHMM:
                 emitprob /= np.sum(emitprob)
                 self._emitprob[k] = np.ones((self._n_simbols, self._n_simbols)) * emitprob[np.newaxis, :]
 
+    def _check_probs(self):
+        np.testing.assert_allclose(np.sum(self._initprob), 1)
+        np.testing.assert_allclose(np.sum(self._transprob, axis=1), np.ones(self._n_hstates))
+        for k in range(self._n_hstates):
+            if self._hstate_properties[k] == 0:
+                np.testing.assert_allclose(np.sum(self._emitprob[k]), 1)
+            elif self._hstate_properties[k] == 1:
+                np.testing.assert_allclose(np.sum(self._emitprob[k], axis=0), np.ones(self._n_simbols))
+            else:
+                np.testing.assert_allclose(np.sum(self._emitprob[k], axis=1), np.ones(self._n_simbols))
+
+
     def _gen_hstate_properties(self):
         # 0: Match, 1: Xins, 2: Yins
         hstate_properties = []
@@ -84,7 +106,7 @@ class PHMM:
         for _ in range(self._n_yins_states):
             hstate_properties.append(2)
 
-        return hstate_properties
+        return np.array(hstate_properties, dtype=np.int_)
 
     def _delta_index(self, hstate):
         if hstate < 0 or hstate >= self._n_hstates:
@@ -98,10 +120,8 @@ class PHMM:
         log_emitprob = log_(self._emitprob)
         log_emitprob_frame = np.zeros(shape)
 
-        hstate_props = np.array(self._hstate_properties, dtype=np.int64)
-
         phmmc._compute_log_emitprob_frame(log_emitprob_frame, log_emitprob,
-                                          xseq, yseq, hstate_props,
+                                          xseq, yseq, self._hstate_properties,
                                           len_x, len_y, self._n_hstates)
 
         return log_emitprob_frame
@@ -165,61 +185,69 @@ class PHMM:
         return np.array(xseq), np.array(yseq), np.array(hseq)
 
     def decode(self, x_seq, y_seq):
-        log_initprob = np.log(self._initprob + EPS)
-        log_transprob = np.log(self._transprob + EPS)
+        assert(x_seq.shape[0] > 0 and y_seq.shape[0] > 0)
+        # print("emit")
+        log_initprob = log_(self._initprob)
+        log_transprob = log_(self._transprob)
 
         len_x = x_seq.shape[0]
         len_y = y_seq.shape[0]
 
         lattice_shape = (len_x + 1, len_y + 1, self._n_hstates)
         viterbi_lattice = np.full(lattice_shape, -np.inf)
-        trace_lattice = np.full(lattice_shape, -1, dtype=np.int32)
 
         log_emitprob_frame = self._gen_log_emitprob_frame(x_seq, y_seq)
 
-        for k in range(self._n_hstates):
-            di, dj = self._delta_index(k)
-            viterbi_lattice[di, dj, k] = log_emitprob_frame[0, 0, k] + log_initprob[k]
-            trace_lattice[di, dj, k] = k
+        map_hstates = np.full(len_x + len_y + 1, -1, dtype=np.int_)
+        ll = phmmc._decode(len_x+1, len_y+1, self._n_hstates,
+                          self._hstate_properties, log_emitprob_frame,
+                          log_initprob, log_transprob,
+                          viterbi_lattice, map_hstates)
 
-        # induction
-        for i in range(len_x+1):
-            for j in range(len_y+1):
+        l = map_hstates.shape[0]
+        map_hstates = map_hstates[:l-(map_hstates == -1).sum()]
 
-                if i == 0 and j == 0:
-                    continue
+        return ll, map_hstates
 
-                for k in range(self._n_hstates):
-                    if viterbi_lattice[i, j, k] != (- np.inf):
-                        continue
+    def decode_align(self, xseq, yseq):
+        _, map_hstates = self.decode(xseq, yseq)
 
-                    cands = np.full(self._n_hstates, - np.inf)
-                    di, dj = self._delta_index(k)
-                    _i , _j = i - di, j - dj
-                    if _i >= 0 and _j >= 0:
-                        for l in range(self._n_hstates):
-                            cands[l] = viterbi_lattice[_i, _j, l] + log_transprob[l, k]
+        aligned_xseq = []
+        aligned_yseq = []
 
-                    opt_l = np.argmax(cands)
-                    viterbi_lattice[i, j, k] = cands[opt_l] + log_emitprob_frame[i, j, k]
-                    trace_lattice[i, j, k] = opt_l
+        xseq = list(xseq)
+        yseq = list(yseq)
+        for h in map_hstates:
+            prop = self._hstate_properties[h]
+            if prop == 0:
+                aligned_xseq.append(xseq.pop(0))
+                aligned_yseq.append(yseq.pop(0))
+            elif prop == 1:
+                aligned_xseq.append(xseq.pop(0))
+                aligned_yseq.append(-1)
+            elif prop == 2:
+                aligned_xseq.append(-1)
+                aligned_yseq.append(yseq.pop(0))
 
-        # trace back
-        i, j = len_x, len_y
-        map_hstates = [np.argmax(viterbi_lattice[i, j, :])]
+        assert len(xseq) == 0
+        assert len(yseq) == 0
 
-        log_likelihood = viterbi_lattice[len_x, len_y, map_hstates[-1]]
+        return np.array(aligned_xseq), np.array(aligned_yseq)
 
-        while (i, j) != (0, 0):
-            curr_state = map_hstates[-1]
-            di, dj = self._delta_index(curr_state)
-            map_hstates.append(trace_lattice[i, j, curr_state])
-            i -= di
-            j -= dj
+    def gen_alignment_matrix(self, xseq, yseq):
+        _, map_hstates = self.decode(xseq, yseq)
+        xlen, = xseq.shape
+        ylen, = yseq.shape
+        matrix = np.zeros((xlen+1, ylen+1), dtype=np.int_)
 
-        map_hstates.reverse()
+        i, j = (0, 0)
 
-        return log_likelihood, np.array(map_hstates[1:])
+        for h in map_hstates:
+            di, dj = self._delta_index(h)
+            i += di
+            j += dj
+            matrix[i, j] = 1
+        return matrix
 
     def _print_states(self, i_iter=None, verbose_level=1):
 
@@ -264,8 +292,6 @@ class PHMM:
         if not self._params_valid:
             self._params_random_init()
 
-        log_transprob = log_(self._transprob)
-        log_initprob = log_(self._initprob)
         assert(len(xseqs) == len(yseqs))
         # is there better way to explain 0 in log space?(-inf?)
 
@@ -274,6 +300,9 @@ class PHMM:
 
         for i in range(1, max_iter + 1):
             sstats = self._init_sufficient_statistics()
+
+            log_transprob = log_(self._transprob)
+            log_initprob = log_(self._initprob)
 
             lock = threading.Lock()
             with ThreadPoolExecutor(max_workers=n_threads) as e:
@@ -288,7 +317,9 @@ class PHMM:
             if np.abs(sstats["score"] - self._last_score) / len(xseqs) < self._stop_threshold:
                 return self._last_score
             elif sstats["score"] - self._last_score < 0:
-                raise RuntimeError("log-likelihood decreased")
+                warnings.warn("score decreased", RuntimeWarning)
+                return
+                #raise RuntimeError("log-likelihood decreased")
 
             self._update_params(sstats)
 
@@ -331,19 +362,20 @@ class PHMM:
 
     def _update_params(self, sstats):
         self._last_score = sstats["score"]
-        self._initprob = sstats["init"] / (np.sum(sstats["init"]) + EPS)
-        self._transprob = sstats["trans"] / (np.sum(sstats["trans"], axis=1)[:, np.newaxis] + EPS)
+        self._initprob = sstats["init"] / (np.sum(sstats["init"]))
+
+        self._transprob = (sstats["trans"]) / (np.sum(sstats["trans"], axis=1)[:, np.newaxis])
 
         for k in range(self._n_hstates):
 
             if self._hstate_properties[k] == 0:
-                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k]) + EPS)
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k]))
 
             if self._hstate_properties[k] == 1:
-                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=0) + EPS)[np.newaxis, :]
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=0))[np.newaxis, :]
 
             if self._hstate_properties[k] == 2:
-                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=1) + EPS)[:, np.newaxis]
+                self._emitprob[k] = sstats["emit"][k] / (np.sum(sstats["emit"][k], axis=1))[:, np.newaxis]
 
     def _compute_smoothed_marginals(self, fwd_lattice, bwd_lattice, ll,
                                     log_emitprob_frame, log_transprob):
@@ -355,7 +387,7 @@ class PHMM:
         # two-sliced smoothed margninal
         log_xi = np.full((shape_x, shape_y, n_hstates, n_hstates), -np.inf)
         phmmc._compute_two_sliced_margnial(shape_x, shape_y, n_hstates,
-                                           np.array(self._hstate_properties, dtype=np.int32),
+                                           self._hstate_properties,
                                            ll, fwd_lattice, bwd_lattice, log_emitprob_frame,
                                            log_transprob, log_xi)
         xi = np.exp(log_xi)
@@ -367,7 +399,7 @@ class PHMM:
 
         fwd_lattice = np.full((shape_x, shape_y, n_hstates), -np.inf)
 
-        phmmc._forward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
+        phmmc._forward(shape_x, shape_y, n_hstates, self._hstate_properties,
                        log_emitprob_frame, log_initprob, log_transprob, fwd_lattice)
 
         log_likelihood = logsumexp(fwd_lattice[shape_x - 1, shape_y - 1, :])
@@ -379,7 +411,7 @@ class PHMM:
 
         bwd_lattice = np.full((shape_x, shape_y, n_hstates), - np.inf)
 
-        phmmc._backward(shape_x, shape_y, n_hstates, np.array(self._hstate_properties, dtype=np.int32),
+        phmmc._backward(shape_x, shape_y, n_hstates, self._hstate_properties,
                        log_emitprob_frame, log_transprob, bwd_lattice)
 
         return bwd_lattice
