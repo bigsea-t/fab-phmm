@@ -1,7 +1,7 @@
 import unittest
 
-from fab_phmm.fab_phmm import FABPHMM
-from fab_phmm.utils import *
+from fab_aligners.fab_phmm import FABPHMM
+from fab_aligners.utils import *
 
 
 class TestFABPHMM(unittest.TestCase):

@@ -1,7 +1,7 @@
 import unittest
 
-from fab_phmm import phmm
-from fab_phmm.utils import *
+from fab_aligners import phmm
+from fab_aligners.utils import *
 
 
 class TestPHMM(unittest.TestCase):
@@ -57,28 +57,69 @@ class TestPHMM(unittest.TestCase):
 
             return map_hstates
 
+        def decode_align(xseq, yseq):
+            return self.model.decode_align(xseq, yseq)
+
+        # 1st
         xseq = np.array([0, 0])
         yseq = np.array([0, 1, 0])
-        ans = np.array([0, 2, 0])
 
-        np.testing.assert_array_equal(ans, decode(xseq, yseq))
+        hstates = decode(xseq, yseq)
+        aligned_xseq, aligned_yseq = decode_align(xseq, yseq)
 
+        ans_hstates = np.array([0, 2, 0])
+        ans_aligned_xseq = np.array([0, -1, 0])
+        ans_aligned_yseq = np.array([0, 1, 0])
+
+
+        np.testing.assert_array_equal(ans_hstates, hstates)
+        np.testing.assert_array_equal(ans_aligned_xseq, aligned_xseq)
+        np.testing.assert_array_equal(ans_aligned_yseq, aligned_yseq)
+
+        #2nd
         xseq = np.array([1, 0, 0])
         yseq = np.array([0, 0])
-        ans = np.array([1, 0, 0])
 
-        np.testing.assert_array_equal(ans, decode(xseq, yseq))
+        hstates = decode(xseq, yseq)
+        aligned_xseq, aligned_yseq = decode_align(xseq, yseq)
 
+        ans_hstates = np.array([1, 0, 0])
+        ans_aligned_xseq = np.array([1, 0, 0])
+        ans_aligned_yseq = np.array([-1, 0, 0])
+
+        np.testing.assert_array_equal(ans_hstates, hstates)
+        np.testing.assert_array_equal(ans_aligned_xseq, aligned_xseq)
+        np.testing.assert_array_equal(ans_aligned_yseq, aligned_yseq)
+
+        #3rd
         xseq = np.array([0, 0])
         yseq = np.array([0, 0, 1, 2, 3])
-        ans = np.array([0, 0, 2, 2, 2])
 
-        np.testing.assert_array_equal(ans, decode(xseq, yseq))
+        hstates = decode(xseq, yseq)
+        aligned_xseq, aligned_yseq = decode_align(xseq, yseq)
 
+        ans_hstates = np.array([0, 0, 2, 2, 2])
+        ans_aligned_xseq = np.array([0, 0, -1, -1, -1])
+        ans_aligned_yseq = np.array([0, 0, 1, 2, 3])
+
+        np.testing.assert_array_equal(ans_hstates, hstates)
+        np.testing.assert_array_equal(ans_aligned_xseq, aligned_xseq)
+        np.testing.assert_array_equal(ans_aligned_yseq, aligned_yseq)
+
+        #4th
         xseq = np.array([0, 1, 2, 0, 1, 3, 0, 0, 0])
         yseq = np.array([0, 1, 2, 0, 3, 0, 0, 0])
-        ans = np.array([0, 0, 0, 0, 1, 0, 0, 0, 0])
-        np.testing.assert_array_equal(ans, decode(xseq, yseq))
+
+        hstates = decode(xseq, yseq)
+        aligned_xseq, aligned_yseq = decode_align(xseq, yseq)
+
+        ans_hstates = np.array([0, 0, 0, 0, 1, 0, 0, 0, 0])
+        ans_aligned_xseq = np.array([0, 1, 2, 0, 1, 3, 0, 0, 0])
+        ans_aligned_yseq = np.array([0, 1, 2, 0, -1, 3, 0, 0, 0])
+
+        np.testing.assert_array_equal(ans_hstates, hstates)
+        np.testing.assert_array_equal(ans_aligned_xseq, aligned_xseq)
+        np.testing.assert_array_equal(ans_aligned_yseq, aligned_yseq)
 
     def test_gen_log_emitprob_frame(self):
         print("test gen log emitprob frame")

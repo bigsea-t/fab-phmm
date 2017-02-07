@@ -1,6 +1,6 @@
 import numpy as np
-from fab_phmm.utils import EPS, log_, logsumexp
-from fab_phmm import phmmc
+from fab_aligners.utils import EPS, log_, logsumexp
+from fab_aligners import phmmc
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import threading

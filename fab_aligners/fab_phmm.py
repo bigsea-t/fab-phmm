@@ -1,5 +1,5 @@
-from fab_phmm.phmm import PHMM
-from fab_phmm.utils import *
+from fab_aligners.phmm import PHMM
+from fab_aligners.utils import *
 import warnings
 import copy
 import timeit
